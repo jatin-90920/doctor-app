@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "117368663381",
+    "project_id": "doctor-crm-30d6f",
+    "storage_bucket": "doctor-crm-30d6f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:117368663381:android:cb7d938946b326b22113dc",
+        "android_client_info": {
+          "package_name": "com.example.doctor_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6Sp95DkVwQHIGA0L8XXVX27tcTzL3Kn0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

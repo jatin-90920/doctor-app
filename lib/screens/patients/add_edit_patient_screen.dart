@@ -1,9 +1,8 @@
+import 'package:ayurvedic_doctor_crm/services/patient_firestore_service.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:ayurvedic_doctor_crm/models/patient.dart';
-import 'package:ayurvedic_doctor_crm/services/patient_service.dart';
 import 'package:ayurvedic_doctor_crm/widgets/custom_app_bar.dart';
 
 class AddEditPatientScreen extends StatefulWidget {
@@ -43,7 +42,7 @@ class _AddEditPatientScreenState extends State<AddEditPatientScreen> {
     final patient = widget.patient!;
     _fullNameController.text = patient.fullName;
     _selectedGender = patient.gender;
-    
+
     if (patient.age != null) {
       _ageController.text = patient.age.toString();
       _useAge = true;
@@ -51,7 +50,7 @@ class _AddEditPatientScreenState extends State<AddEditPatientScreen> {
       _selectedDateOfBirth = patient.dateOfBirth;
       _useAge = false;
     }
-    
+
     _phoneController.text = patient.phone ?? '';
     _emailController.text = patient.email ?? '';
     _addressController.text = patient.address ?? '';
@@ -80,7 +79,7 @@ class _AddEditPatientScreenState extends State<AddEditPatientScreen> {
             child: Text(
               'Save',
               style: TextStyle(
-                color: _isLoading 
+                color: _isLoading
                     ? Theme.of(context).disabledColor
                     : Theme.of(context).colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -283,7 +282,8 @@ class _AddEditPatientScreenState extends State<AddEditPatientScreen> {
               keyboardType: TextInputType.emailAddress,
               validator: (value) {
                 if (value != null && value.isNotEmpty) {
-                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                      .hasMatch(value)) {
                     return 'Please enter a valid email address';
                   }
                 }
@@ -367,7 +367,8 @@ class _AddEditPatientScreenState extends State<AddEditPatientScreen> {
   Future<void> _selectDateOfBirth() async {
     final date = await showDatePicker(
       context: context,
-      initialDate: _selectedDateOfBirth ?? DateTime.now().subtract(const Duration(days: 365 * 30)),
+      initialDate: _selectedDateOfBirth ??
+          DateTime.now().subtract(const Duration(days: 365 * 30)),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
     );
@@ -389,41 +390,68 @@ class _AddEditPatientScreenState extends State<AddEditPatientScreen> {
     });
 
     try {
-      final patientService = context.read<PatientService>();
-      
+      final patientService = PatientFirestoreService();
+
       int? age;
       DateTime? dateOfBirth;
-      
+
       if (_useAge && _ageController.text.isNotEmpty) {
         age = int.parse(_ageController.text);
       } else if (!_useAge && _selectedDateOfBirth != null) {
         dateOfBirth = _selectedDateOfBirth;
       }
 
+      final now = DateTime.now();
+
       bool success;
       if (_isEditing) {
-        success = await patientService.updatePatient(
-          id: widget.patient!.id,
+        final updatedPatient = widget.patient!.copyWith(
           fullName: _fullNameController.text.trim(),
           age: age,
           dateOfBirth: dateOfBirth,
           gender: _selectedGender,
-          phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
-          email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
-          address: _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
-          medicalHistory: _medicalHistoryController.text.trim().isEmpty ? null : _medicalHistoryController.text.trim(),
+          phone: _phoneController.text.trim().isEmpty
+              ? null
+              : _phoneController.text.trim(),
+          email: _emailController.text.trim().isEmpty
+              ? null
+              : _emailController.text.trim(),
+          address: _addressController.text.trim().isEmpty
+              ? null
+              : _addressController.text.trim(),
+          medicalHistory: _medicalHistoryController.text.trim().isEmpty
+              ? null
+              : _medicalHistoryController.text.trim(),
+          updatedAt: now,
         );
+
+        await patientService.updatePatient(updatedPatient);
+        success = true;
       } else {
-        success = await patientService.addPatient(
+        final newPatient = Patient(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
           fullName: _fullNameController.text.trim(),
           age: age,
           dateOfBirth: dateOfBirth,
           gender: _selectedGender,
-          phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
-          email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
-          address: _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
-          medicalHistory: _medicalHistoryController.text.trim().isEmpty ? null : _medicalHistoryController.text.trim(),
+          phone: _phoneController.text.trim().isEmpty
+              ? null
+              : _phoneController.text.trim(),
+          email: _emailController.text.trim().isEmpty
+              ? null
+              : _emailController.text.trim(),
+          address: _addressController.text.trim().isEmpty
+              ? null
+              : _addressController.text.trim(),
+          medicalHistory: _medicalHistoryController.text.trim().isEmpty
+              ? null
+              : _medicalHistoryController.text.trim(),
+          createdAt: now,
+          updatedAt: null,
         );
+
+        await patientService.addPatient(newPatient);
+        success = true;
       }
 
       if (mounted) {
@@ -431,7 +459,7 @@ class _AddEditPatientScreenState extends State<AddEditPatientScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                _isEditing 
+                _isEditing
                     ? 'Patient updated successfully'
                     : 'Patient added successfully',
               ),
@@ -443,7 +471,7 @@ class _AddEditPatientScreenState extends State<AddEditPatientScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                _isEditing 
+                _isEditing
                     ? 'Failed to update patient'
                     : 'Failed to add patient',
               ),
@@ -470,4 +498,3 @@ class _AddEditPatientScreenState extends State<AddEditPatientScreen> {
     }
   }
 }
-

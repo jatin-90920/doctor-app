@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:ayurvedic_doctor_crm/models/treatment.dart';
 import 'package:ayurvedic_doctor_crm/models/patient.dart';
-import 'package:ayurvedic_doctor_crm/services/treatment_service.dart';
-import 'package:ayurvedic_doctor_crm/services/patient_service.dart';
+import 'package:ayurvedic_doctor_crm/services/treatment_firestore_service.dart';
+import 'package:ayurvedic_doctor_crm/services/patient_firestore_service.dart';
 import 'package:ayurvedic_doctor_crm/screens/treatments/add_edit_treatment_screen.dart';
 import 'package:ayurvedic_doctor_crm/widgets/custom_app_bar.dart';
 import 'package:ayurvedic_doctor_crm/widgets/loading_widget.dart';
@@ -25,6 +24,10 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
   Patient? _patient;
   bool _isLoading = true;
 
+  // Firestore services
+  final _treatmentService = TreatmentFirestoreService();
+  final _patientService = PatientFirestoreService();
+
   @override
   void initState() {
     super.initState();
@@ -37,36 +40,58 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
     });
 
     try {
-      final treatment = await context.read<TreatmentService>().getTreatment(widget.treatmentId);
+      // Load treatment data
+      final treatment =
+          await _treatmentService.getTreatmentById(widget.treatmentId);
+
       if (treatment != null) {
-        final patient = await context.read<PatientService>().getPatient(treatment.patientId);
-        setState(() {
-          _treatment = treatment;
-          _patient = patient;
-        });
+        // Load patient data
+        final patient =
+            await _patientService.getPatientById(treatment.patientId);
+
+        if (mounted) {
+          setState(() {
+            _treatment = treatment;
+            _patient = patient;
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error loading treatment data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading treatment data: ${e.toString()}'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
+  }
+
+  Future<void> _refreshData() async {
+    await _loadTreatmentData();
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
+      return const Scaffold(
         appBar: CustomAppBar(title: 'Treatment Details'),
-        body: const LoadingWidget(),
+        body: LoadingWidget(message: 'Loading treatment details...'),
       );
     }
 
     if (_treatment == null) {
-      return Scaffold(
+      return const Scaffold(
         appBar: CustomAppBar(title: 'Treatment Details'),
-        body: const EmptyStateWidget(
+        body: EmptyStateWidget(
           icon: Icons.error_outline,
           title: 'Treatment Not Found',
           subtitle: 'The requested treatment could not be found.',
@@ -95,11 +120,13 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
                 value: 'delete',
                 child: Row(
                   children: [
-                    Icon(MdiIcons.delete, color: Theme.of(context).colorScheme.error),
+                    Icon(MdiIcons.delete,
+                        color: Theme.of(context).colorScheme.error),
                     const SizedBox(width: 8),
                     Text(
                       'Delete Treatment',
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      style:
+                          TextStyle(color: Theme.of(context).colorScheme.error),
                     ),
                   ],
                 ),
@@ -108,40 +135,73 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildTreatmentHeader(),
-          const SizedBox(height: 16),
-          _buildPatientInfoCard(),
-          const SizedBox(height: 16),
-          _buildVisitDetailsCard(),
-          const SizedBox(height: 16),
-          _buildMedicinesCard(),
-          if (_treatment!.notes != null && _treatment!.notes!.isNotEmpty) ...[
+      body: RefreshIndicator(
+        onRefresh: _refreshData,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _buildTreatmentHeader(),
             const SizedBox(height: 16),
-            _buildNotesCard(),
+            _buildPatientInfoCard(),
+            const SizedBox(height: 16),
+            _buildVisitDetailsCard(),
+            const SizedBox(height: 16),
+            _buildMedicinesCard(),
+            if (_treatment!.notes != null && _treatment!.notes!.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _buildNotesCard(),
+            ],
+            const SizedBox(height: 16),
+            _buildRecordInfoCard(),
+            const SizedBox(height: 32), // Extra space at bottom
           ],
-          const SizedBox(height: 16),
-          _buildRecordInfoCard(),
-        ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _editTreatment(),
+        icon: Icon(MdiIcons.pencil),
+        label: const Text('Edit Treatment'),
       ),
     );
   }
 
   Widget _buildTreatmentHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(12),
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).colorScheme.primaryContainer,
+            Theme.of(context)
+                .colorScheme
+                .primaryContainer
+                .withValues(alpha: 0.8),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Icon(
-            MdiIcons.stethoscope,
-            size: 32,
-            color: Theme.of(context).colorScheme.onPrimaryContainer,
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              MdiIcons.stethoscope,
+              size: 32,
+              color: Theme.of(context).colorScheme.onPrimary,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -155,12 +215,48 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
                         color: Theme.of(context).colorScheme.onPrimaryContainer,
                       ),
                 ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      MdiIcons.calendar,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      DateFormat('dd MMMM yyyy').format(_treatment!.visitDate),
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onPrimaryContainer,
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 4),
-                Text(
-                  DateFormat('dd MMMM yyyy').format(_treatment!.visitDate),
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
+                Row(
+                  children: [
+                    Icon(
+                      MdiIcons.clockOutline,
+                      size: 16,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onPrimaryContainer
+                          .withValues(alpha: 0.8),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      DateFormat('hh:mm a').format(_treatment!.visitDate),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onPrimaryContainer
+                                .withValues(alpha: 0.8),
+                          ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -171,25 +267,57 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
   }
 
   Widget _buildPatientInfoCard() {
-    if (_patient == null) return const SizedBox.shrink();
+    if (_patient == null) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(
+                MdiIcons.accountQuestion,
+                size: 32,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 16),
+              Text(
+                'Patient information not available',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Card(
+      elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Patient Information',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+            Row(
+              children: [
+                Icon(
+                  MdiIcons.account,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Patient Information',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Row(
               children: [
                 CircleAvatar(
-                  radius: 24,
+                  radius: 28,
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   child: Text(
                     _patient!.fullName.isNotEmpty
@@ -198,7 +326,7 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onPrimary,
                       fontWeight: FontWeight.bold,
-                      fontSize: 18,
+                      fontSize: 20,
                     ),
                   ),
                 ),
@@ -209,28 +337,77 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
                     children: [
                       Text(
                         _patient!.fullName,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        '${_patient!.gender}, ${_patient!.displayAge} years',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
+                      Row(
+                        children: [
+                          Icon(
+                            _patient!.gender == 'Male'
+                                ? MdiIcons.genderMale
+                                : _patient!.gender == 'Female'
+                                    ? MdiIcons.genderFemale
+                                    : MdiIcons.genderMaleFemale,
+                            size: 16,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${_patient!.gender}, ${_patient!.displayAge} years',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                          ),
+                        ],
                       ),
                       if (_patient!.phone != null) ...[
                         const SizedBox(height: 4),
-                        Text(
-                          _patient!.phone!,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
+                        Row(
+                          children: [
+                            Icon(
+                              MdiIcons.phone,
+                              size: 16,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _patient!.phone!,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
                         ),
                       ],
                     ],
                   ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    // Navigate to patient details
+                    Navigator.pushNamed(
+                      context,
+                      '/patient-detail',
+                      arguments: _patient!.id,
+                    );
+                  },
+                  icon: Icon(MdiIcons.arrowRight),
+                  tooltip: 'View Patient Details',
                 ),
               ],
             ),
@@ -242,31 +419,41 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
 
   Widget _buildVisitDetailsCard() {
     return Card(
+      elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Visit Details',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+            Row(
+              children: [
+                Icon(
+                  MdiIcons.clipboardText,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Visit Details',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             _buildDetailRow(
               MdiIcons.calendar,
-              'Visit Date',
-              DateFormat('dd MMMM yyyy').format(_treatment!.visitDate),
+              'Visit Date & Time',
+              '${DateFormat('dd MMMM yyyy').format(_treatment!.visitDate)} at ${DateFormat('hh:mm a').format(_treatment!.visitDate)}',
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             _buildDetailRow(
               MdiIcons.accountInjury,
               'Symptoms',
               _treatment!.symptoms,
               isMultiline: true,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             _buildDetailRow(
               MdiIcons.stethoscope,
               'Diagnosis',
@@ -281,6 +468,7 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
 
   Widget _buildMedicinesCard() {
     return Card(
+      elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -288,7 +476,10 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
           children: [
             Row(
               children: [
-                Icon(MdiIcons.pill),
+                Icon(
+                  MdiIcons.pill,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Prescribed Medicines',
@@ -297,34 +488,64 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
                       ),
                 ),
                 const Spacer(),
-                Chip(
-                  label: Text('${_treatment!.prescribedMedicines.length}'),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${_treatment!.prescribedMedicines.length}',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
             if (_treatment!.prescribedMedicines.isEmpty)
               Container(
-                padding: const EdgeInsets.all(24),
+                width: double.infinity,
+                padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .outline
+                        .withValues(alpha: 0.3),
+                    style: BorderStyle.solid,
                   ),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   children: [
                     Icon(
                       MdiIcons.pill,
                       size: 48,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurfaceVariant
+                          .withValues(alpha: 0.6),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Text(
                       'No medicines prescribed',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'This treatment did not include any medications',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                   ],
@@ -335,82 +556,119 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
                 final medicine = _treatment!.prescribedMedicines[index];
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    border: Border.all(
-                      color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              medicine.name,
-                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                            ),
-                          ),
-                          Chip(
-                            label: Text(
-                              medicine.typeDisplayName,
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Dosage',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                ),
-                                Text(medicine.dosage),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Duration',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                ),
-                                Text(medicine.duration),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (medicine.notes != null && medicine.notes!.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Notes',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w500,
-                              ),
-                        ),
-                        Text(medicine.notes!),
+                    gradient: LinearGradient(
+                      colors: [
+                        Theme.of(context)
+                            .colorScheme
+                            .surfaceVariant
+                            .withValues(alpha: 0.3),
+                        Theme.of(context)
+                            .colorScheme
+                            .surfaceVariant
+                            .withValues(alpha: 0.1),
                       ],
-                    ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '${index + 1}',
+                                style: TextStyle(
+                                  color:
+                                      Theme.of(context).colorScheme.onPrimary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                medicine.name,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .secondaryContainer,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                medicine.typeDisplayName,
+                                style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSecondaryContainer,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildMedicineDetail(
+                                // MdiIcons.medical,
+                                MdiIcons.timerSand,
+                                'Dosage',
+                                medicine.dosage,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildMedicineDetail(
+                                MdiIcons.timerSand,
+                                'Duration',
+                                medicine.duration,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (medicine.notes != null &&
+                            medicine.notes!.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          _buildMedicineDetail(
+                            MdiIcons.noteText,
+                            'Instructions',
+                            medicine.notes!,
+                            isMultiline: true,
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 );
               }),
@@ -420,23 +678,85 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
     );
   }
 
+  Widget _buildMedicineDetail(IconData icon, String label, String value,
+      {bool isMultiline = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+          maxLines: isMultiline ? null : 1,
+          overflow: isMultiline ? null : TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
   Widget _buildNotesCard() {
     return Card(
+      elevation: 2,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Additional Notes',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+            Row(
+              children: [
+                Icon(
+                  MdiIcons.noteText,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Additional Notes',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
-            Text(
-              _treatment!.notes!,
-              style: Theme.of(context).textTheme.bodyMedium,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .surfaceVariant
+                    .withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .outline
+                      .withValues(alpha: 0.2),
+                ),
+              ),
+              child: Text(
+                _treatment!.notes!,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
             ),
           ],
         ),
@@ -446,29 +766,41 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
 
   Widget _buildRecordInfoCard() {
     return Card(
+      elevation: 1,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Record Information',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+            Row(
+              children: [
+                Icon(
+                  MdiIcons.informationOutline,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Record Information',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             _buildDetailRow(
               MdiIcons.clockOutline,
-              'Created',
+              'Record Created',
               DateFormat('dd MMM yyyy, hh:mm a').format(_treatment!.createdAt),
             ),
             if (_treatment!.updatedAt != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               _buildDetailRow(
                 MdiIcons.update,
                 'Last Updated',
-                DateFormat('dd MMM yyyy, hh:mm a').format(_treatment!.updatedAt!),
+                DateFormat('dd MMM yyyy, hh:mm a')
+                    .format(_treatment!.updatedAt!),
               ),
             ],
           ],
@@ -477,9 +809,11 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
     );
   }
 
-  Widget _buildDetailRow(IconData icon, String label, String value, {bool isMultiline = false}) {
+  Widget _buildDetailRow(IconData icon, String label, String value,
+      {bool isMultiline = false}) {
     return Row(
-      crossAxisAlignment: isMultiline ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      crossAxisAlignment:
+          isMultiline ? CrossAxisAlignment.start : CrossAxisAlignment.center,
       children: [
         Icon(
           icon,
@@ -501,7 +835,9 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
               const SizedBox(height: 2),
               Text(
                 value,
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
               ),
             ],
           ),
@@ -510,8 +846,8 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
     );
   }
 
-  void _editTreatment() {
-    Navigator.push(
+  void _editTreatment() async {
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => AddEditTreatmentScreen(
@@ -519,14 +855,26 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
           treatment: _treatment,
         ),
       ),
-    ).then((_) => _loadTreatmentData());
+    );
+
+    if (result == true) {
+      _loadTreatmentData();
+    }
   }
 
   void _generateReport() {
     // TODO: Implement PDF report generation
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('PDF report generation will be implemented'),
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.white),
+            SizedBox(width: 12),
+            Text('PDF report generation will be implemented'),
+          ],
+        ),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -543,9 +891,18 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Treatment'),
+        title: Row(
+          children: [
+            Icon(
+              MdiIcons.alertCircle,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(width: 8),
+            const Text('Delete Treatment'),
+          ],
+        ),
         content: const Text(
-          'Are you sure you want to delete this treatment record? This action cannot be undone.',
+          'Are you sure you want to delete this treatment record? This action cannot be undone and all associated data will be permanently removed.',
         ),
         actions: [
           TextButton(
@@ -555,24 +912,63 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              final success = await context.read<TreatmentService>().deleteTreatment(
-                _treatment!.id,
-                _treatment!.patientId,
-              );
-              if (mounted) {
-                if (success) {
+
+              try {
+                // Show loading
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Row(
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 16),
+                        Text('Deleting treatment...'),
+                      ],
+                    ),
+                  ),
+                );
+
+                // Delete treatment
+                await _treatmentService.deleteTreatment(_treatment!.id);
+
+                if (mounted) {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: const Text('Treatment deleted successfully'),
+                      content: const Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.white),
+                          SizedBox(width: 12),
+                          Text('Treatment deleted successfully'),
+                        ],
+                      ),
                       backgroundColor: Theme.of(context).colorScheme.primary,
+                      behavior: SnackBarBehavior.floating,
                     ),
                   );
-                  Navigator.pop(context);
-                } else {
+                  Navigator.pop(
+                      context, true); // Return true to indicate deletion
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: const Text('Failed to delete treatment'),
+                      content: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.white),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                                'Failed to delete treatment: ${e.toString()}'),
+                          ),
+                        ],
+                      ),
                       backgroundColor: Theme.of(context).colorScheme.error,
+                      behavior: SnackBarBehavior.floating,
                     ),
                   );
                 }
@@ -588,4 +984,3 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
     );
   }
 }
-

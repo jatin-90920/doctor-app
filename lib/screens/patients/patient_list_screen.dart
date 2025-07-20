@@ -1,3 +1,4 @@
+import 'package:ayurvedic_doctor_crm/services/patient_firestore_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -18,12 +19,23 @@ class PatientListScreen extends StatefulWidget {
 
 class _PatientListScreenState extends State<PatientListScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final PatientFirestoreService _patientService = PatientFirestoreService();
+  List<Patient> _patients = [];
+  bool _isLoading = true;
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<PatientService>().loadPatients();
+    _loadPatients();
+  }
+
+  void _loadPatients() async {
+    setState(() => _isLoading = true);
+    final result = await _patientService.fetchPatientsOnce();
+    setState(() {
+      _patients = result;
+      _isLoading = false;
     });
   }
 
@@ -31,6 +43,15 @@ class _PatientListScreenState extends State<PatientListScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  List<Patient> get _filteredPatients {
+    if (_searchQuery.isEmpty) return _patients;
+    return _patients.where((patient) {
+      return patient.fullName.toLowerCase().contains(_searchQuery) ||
+          (patient.phone?.toLowerCase().contains(_searchQuery) ?? false) ||
+          (patient.email?.toLowerCase().contains(_searchQuery) ?? false);
+    }).toList();
   }
 
   @override
@@ -50,31 +71,22 @@ class _PatientListScreenState extends State<PatientListScreen> {
         children: [
           _buildSearchBar(),
           Expanded(
-            child: Consumer<PatientService>(
-              builder: (context, patientService, child) {
-                if (patientService.isLoading) {
-                  return const LoadingWidget();
-                }
-
-                if (patientService.patients.isEmpty) {
-                  return EmptyStateWidget(
-                    icon: MdiIcons.accountGroup,
-                    title: patientService.searchQuery.isEmpty
-                        ? 'No Patients Yet'
-                        : 'No Patients Found',
-                    subtitle: patientService.searchQuery.isEmpty
-                        ? 'Add your first patient to get started'
-                        : 'Try adjusting your search criteria',
-                    actionText: patientService.searchQuery.isEmpty ? 'Add Patient' : null,
-                    onActionPressed: patientService.searchQuery.isEmpty
-                        ? () => _navigateToAddPatient()
-                        : null,
-                  );
-                }
-
-                return _buildPatientList(patientService.patients);
-              },
-            ),
+            child: _isLoading
+                ? const LoadingWidget()
+                : _filteredPatients.isEmpty
+                    ? EmptyStateWidget(
+                        icon: MdiIcons.accountGroup,
+                        title: _searchQuery.isEmpty
+                            ? 'No Patients Yet'
+                            : 'No Patients Found',
+                        subtitle: _searchQuery.isEmpty
+                            ? 'Add your first patient to get started'
+                            : 'Try adjusting your search criteria',
+                        actionText: _searchQuery.isEmpty ? 'Add Patient' : null,
+                        onActionPressed:
+                            _searchQuery.isEmpty ? _navigateToAddPatient : null,
+                      )
+                    : _buildPatientList(_filteredPatients),
           ),
         ],
       ),
@@ -105,7 +117,9 @@ class _PatientListScreenState extends State<PatientListScreen> {
           fillColor: Theme.of(context).colorScheme.surface,
         ),
         onChanged: (value) {
-          context.read<PatientService>().searchPatients(value);
+          setState(() {
+            _searchQuery = value.toLowerCase();
+          });
         },
       ),
     );
@@ -176,9 +190,12 @@ class _PatientListScreenState extends State<PatientListScreen> {
                         const SizedBox(width: 4),
                         Text(
                           '${patient.gender}, ${patient.displayAge} years',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
                         ),
                       ],
                     ),
@@ -189,13 +206,19 @@ class _PatientListScreenState extends State<PatientListScreen> {
                           Icon(
                             MdiIcons.phone,
                             size: 16,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             patient.phone!,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
                                 ),
                           ),
                         ],
@@ -221,11 +244,13 @@ class _PatientListScreenState extends State<PatientListScreen> {
                     value: 'delete',
                     child: Row(
                       children: [
-                        Icon(MdiIcons.delete, color: Theme.of(context).colorScheme.error),
+                        Icon(MdiIcons.delete,
+                            color: Theme.of(context).colorScheme.error),
                         const SizedBox(width: 8),
                         Text(
                           'Delete',
-                          style: TextStyle(color: Theme.of(context).colorScheme.error),
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.error),
                         ),
                       ],
                     ),
@@ -289,20 +314,26 @@ class _PatientListScreenState extends State<PatientListScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              final success = await context.read<PatientService>().deletePatient(patient.id);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      success
-                          ? 'Patient deleted successfully'
-                          : 'Failed to delete patient',
+              try {
+                await _patientService.deletePatient(patient.id);
+                _loadPatients();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Patient deleted successfully'),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                     ),
-                    backgroundColor: success
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.error,
-                  ),
-                );
+                  );
+                }
+              } catch (_) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Failed to delete patient'),
+                      backgroundColor: Theme.of(context).colorScheme.error,
+                    ),
+                  );
+                }
               }
             },
             style: TextButton.styleFrom(
@@ -315,4 +346,3 @@ class _PatientListScreenState extends State<PatientListScreen> {
     );
   }
 }
-
