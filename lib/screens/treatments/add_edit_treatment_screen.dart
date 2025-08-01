@@ -28,7 +28,7 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
   final _symptomsController = TextEditingController();
   final _diagnosisController = TextEditingController();
   final _notesController = TextEditingController();
-
+  final _treatmentChargeController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   List<Medicine> _prescribedMedicines = [];
   bool _isLoading = false;
@@ -76,6 +76,7 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
     _symptomsController.text = treatment.symptoms;
     _diagnosisController.text = treatment.diagnosis;
     _notesController.text = treatment.notes ?? '';
+    _treatmentChargeController.text = treatment.treatmentCharge?.toString() ?? '';
     _prescribedMedicines = List.from(treatment.prescribedMedicines);
   }
 
@@ -84,7 +85,31 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
     _symptomsController.dispose();
     _diagnosisController.dispose();
     _notesController.dispose();
+    _treatmentChargeController.dispose();
     super.dispose();
+  }
+
+  // Enhanced method to get medicine type color with better visibility
+  Color _getMedicineTypeColor(MedicineType type) {
+    switch (type) {
+      case MedicineType.ayurvedic:
+        return const Color(0xFF2E7D32); // Dark green for Ayurvedic
+      case MedicineType.allopathic:
+        return const Color(0xFF1565C0); // Dark blue for Allopathic
+      case MedicineType.other:
+        return const Color(0xFF6A1B9A); // Dark purple for Other
+    }
+  }
+
+  Color _getMedicineTypeBackgroundColor(MedicineType type) {
+    switch (type) {
+      case MedicineType.ayurvedic:
+        return const Color(0xFF2E7D32).withValues(alpha: 0.1);
+      case MedicineType.allopathic:
+        return const Color(0xFF1565C0).withValues(alpha: 0.1);
+      case MedicineType.other:
+        return const Color(0xFF6A1B9A).withValues(alpha: 0.1);
+    }
   }
 
   @override
@@ -92,6 +117,7 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
     return Scaffold(
       appBar: CustomAppBar(
         title: _isEditing ? 'Edit Treatment' : 'Add Treatment',
+        subtitle: _isEditing ? 'Update treatment details' : 'Record new treatment session',
         actions: [
           TextButton(
             onPressed: _isLoading ? null : _saveTreatment,
@@ -113,6 +139,8 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             _buildVisitDateSection(),
+            const SizedBox(height: 24),
+            _buildTreatmentChargeSection(),
             const SizedBox(height: 24),
             _buildSymptomsSection(),
             const SizedBox(height: 24),
@@ -155,6 +183,46 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
                   DateFormat('dd MMMM yyyy').format(_selectedDate),
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTreatmentChargeSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Treatment Charge',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _treatmentChargeController,
+              decoration: InputDecoration(
+                labelText: 'Charge Amount (Optional)',
+                prefixIcon: Icon(MdiIcons.currencyInr),
+                border: const OutlineInputBorder(),
+                hintText: 'Enter treatment charge...',
+                prefixText: '₹ ',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              validator: (value) {
+                if (value != null && value.trim().isNotEmpty) {
+                  final charge = double.tryParse(value.trim());
+                  if (charge == null || charge < 0) {
+                    return 'Please enter a valid charge amount';
+                  }
+                }
+                return null;
+              },
             ),
           ],
         ),
@@ -324,7 +392,7 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
               )
             else
               ...List.generate(_prescribedMedicines.length, (index) {
-                return _buildMedicineCard(index);
+                return _buildEnhancedMedicineCard(index);
               }),
           ],
         ),
@@ -332,7 +400,8 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
     );
   }
 
-  Widget _buildMedicineCard(int index) {
+  // Enhanced medicine card with improved badge visibility
+  Widget _buildEnhancedMedicineCard(int index) {
     final medicine = _prescribedMedicines[index];
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -351,13 +420,38 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
                         ),
                   ),
                 ),
-                Chip(
-                  label: Text(
-                    medicine.typeDisplayName,
-                    style: const TextStyle(fontSize: 12),
+                // Enhanced medicine type badge with better visibility
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _getMedicineTypeBackgroundColor(medicine.type),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _getMedicineTypeColor(medicine.type),
+                      width: 1,
+                    ),
                   ),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _getMedicineTypeIcon(medicine.type),
+                        size: 14,
+                        color: _getMedicineTypeColor(medicine.type),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        medicine.typeDisplayName,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _getMedicineTypeColor(medicine.type),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 IconButton(
                   onPressed: () => _editMedicinePrescription(index),
                   icon: Icon(MdiIcons.pencil, size: 18),
@@ -409,6 +503,30 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
                 ),
               ],
             ),
+            if (medicine.quantity != null && medicine.quantity!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Quantity',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                        ),
+                        Text(medicine.quantity!),
+                      ],
+                    ),
+                  ),
+                  const Expanded(child: SizedBox()),
+                ],
+              ),
+            ],
             if (medicine.notes != null && medicine.notes!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
@@ -423,6 +541,18 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
         ),
       ),
     );
+  }
+
+  // Helper method to get medicine type icon
+  IconData _getMedicineTypeIcon(MedicineType type) {
+    switch (type) {
+      case MedicineType.ayurvedic:
+        return MdiIcons.leaf; // Natural/herbal icon for Ayurvedic
+      case MedicineType.allopathic:
+        return MdiIcons.pill; // Pill icon for Allopathic
+      case MedicineType.other:
+        return MdiIcons.bottleTonicPlus; // Tonic bottle for Other
+    }
   }
 
   Widget _buildNotesSection() {
@@ -490,7 +620,6 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
       firstDate: DateTime(2000),
       lastDate: DateTime.now(),
     );
-
     if (date != null) {
       setState(() {
         _selectedDate = date;
@@ -587,6 +716,10 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
     setState(() => _isLoading = true);
 
     try {
+      final treatmentCharge = _treatmentChargeController.text.trim().isEmpty
+          ? null
+          : double.tryParse(_treatmentChargeController.text.trim());
+
       final treatment = Treatment(
         id: _isEditing ? widget.treatment!.id : UniqueKey().toString(),
         patientId: widget.patientId,
@@ -596,16 +729,24 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
         notes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
+        treatmentCharge: treatmentCharge,
         prescribedMedicines: _prescribedMedicines,
         createdAt: _isEditing ? widget.treatment!.createdAt : DateTime.now(),
       );
 
       final firestoreService = TreatmentFirestoreService();
-
       if (_isEditing) {
         await firestoreService.updateTreatment(treatment);
+        // Notify the treatment service about the update
+        if (mounted) {
+          Provider.of<TreatmentService>(context, listen: false).notifyListeners();
+        }
       } else {
         await firestoreService.addTreatment(treatment);
+        // Notify the treatment service about the new treatment
+        if (mounted) {
+          Provider.of<TreatmentService>(context, listen: false).notifyListeners();
+        }
       }
 
       if (!mounted) return;
@@ -620,7 +761,8 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
           backgroundColor: Theme.of(context).colorScheme.primary,
         ),
       );
-      Navigator.pop(context);
+
+      Navigator.pop(context, true); // Return true to indicate success
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -638,7 +780,7 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
   }
 }
 
-// Enhanced Medicine Dialog with Firestore integration
+// Enhanced Medicine Dialog with improved badge visibility
 class MedicineDialog extends StatefulWidget {
   final Medicine? medicine;
   final Function(Medicine) onSave;
@@ -660,8 +802,8 @@ class _MedicineDialogState extends State<MedicineDialog> {
   final _nameController = TextEditingController();
   final _dosageController = TextEditingController();
   final _durationController = TextEditingController();
+  final _quantityController = TextEditingController();
   final _notesController = TextEditingController();
-
   MedicineType _selectedType = MedicineType.ayurvedic;
   bool _isLoading = false;
 
@@ -679,6 +821,7 @@ class _MedicineDialogState extends State<MedicineDialog> {
     _selectedType = medicine.type;
     _dosageController.text = medicine.dosage;
     _durationController.text = medicine.duration;
+    _quantityController.text = medicine.quantity ?? '';
     _notesController.text = medicine.notes ?? '';
   }
 
@@ -687,8 +830,21 @@ class _MedicineDialogState extends State<MedicineDialog> {
     _nameController.dispose();
     _dosageController.dispose();
     _durationController.dispose();
+    _quantityController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  // Enhanced method to get medicine type color with better visibility
+  Color _getMedicineTypeColor(MedicineType type) {
+    switch (type) {
+      case MedicineType.ayurvedic:
+        return const Color(0xFF2E7D32); // Dark green for Ayurvedic
+      case MedicineType.allopathic:
+        return const Color(0xFF1565C0); // Dark blue for Allopathic
+      case MedicineType.other:
+        return const Color(0xFF6A1B9A); // Dark purple for Other
+    }
   }
 
   @override
@@ -703,11 +859,13 @@ class _MedicineDialogState extends State<MedicineDialog> {
             children: [
               _buildMedicineNameField(),
               const SizedBox(height: 16),
-              _buildMedicineTypeField(),
+              _buildEnhancedMedicineTypeField(),
               const SizedBox(height: 16),
               _buildDosageField(),
               const SizedBox(height: 16),
               _buildDurationField(),
+              const SizedBox(height: 16),
+              _buildQuantityField(),
               const SizedBox(height: 16),
               _buildNotesField(),
             ],
@@ -777,26 +935,70 @@ class _MedicineDialogState extends State<MedicineDialog> {
     );
   }
 
-  Widget _buildMedicineTypeField() {
-    return DropdownButtonFormField<MedicineType>(
-      value: _selectedType,
-      decoration: const InputDecoration(
-        labelText: 'Medicine Type *',
-        border: OutlineInputBorder(),
-      ),
-      items: MedicineType.values.map((type) {
-        return DropdownMenuItem(
-          value: type,
-          child: Text(type.name.toUpperCase()),
-        );
-      }).toList(),
-      onChanged: (value) {
-        setState(() {
-          _selectedType = value!;
-          _nameController.clear();
-        });
-      },
+  // Enhanced medicine type field with better visual indicators
+  Widget _buildEnhancedMedicineTypeField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Medicine Type *',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Theme.of(context).colorScheme.outline),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Column(
+            children: MedicineType.values.map((type) {
+              return RadioListTile<MedicineType>(
+                title: Row(
+                  children: [
+                    Icon(
+                      _getMedicineTypeIcon(type),
+                      color: _getMedicineTypeColor(type),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      type.name.toUpperCase(),
+                      style: TextStyle(
+                        color: _getMedicineTypeColor(type),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                value: type,
+                groupValue: _selectedType,
+                onChanged: (value) {
+                  setState(() {
+                    _selectedType = value!;
+                    _nameController.clear();
+                  });
+                },
+                activeColor: _getMedicineTypeColor(type),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
     );
+  }
+
+  // Helper method to get medicine type icon
+  IconData _getMedicineTypeIcon(MedicineType type) {
+    switch (type) {
+      case MedicineType.ayurvedic:
+        return MdiIcons.leaf; // Natural/herbal icon for Ayurvedic
+      case MedicineType.allopathic:
+        return MdiIcons.pill; // Pill icon for Allopathic
+      case MedicineType.other:
+        return MdiIcons.bottleTonicPlus; // Tonic bottle for Other
+    }
   }
 
   Widget _buildDosageField() {
@@ -883,6 +1085,42 @@ class _MedicineDialogState extends State<MedicineDialog> {
     );
   }
 
+  Widget _buildQuantityField() {
+    final treatmentService = context.read<TreatmentService>();
+    final suggestions = treatmentService.getCommonQuantities();
+
+    return Autocomplete<String>(
+      optionsBuilder: (textEditingValue) {
+        if (textEditingValue.text.isEmpty) {
+          return const Iterable<String>.empty();
+        }
+        return suggestions.where((option) {
+          return option
+              .toLowerCase()
+              .contains(textEditingValue.text.toLowerCase());
+        });
+      },
+      onSelected: (selection) {
+        _quantityController.text = selection;
+      },
+      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+        _quantityController.text = controller.text;
+        return TextFormField(
+          controller: controller,
+          focusNode: focusNode,
+          decoration: const InputDecoration(
+            labelText: 'Quantity (Optional)',
+            border: OutlineInputBorder(),
+            hintText: 'e.g., 1 bottle, 10 tablets',
+          ),
+          onChanged: (value) {
+            _quantityController.text = value;
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildNotesField() {
     return TextFormField(
       controller: _notesController,
@@ -909,6 +1147,9 @@ class _MedicineDialogState extends State<MedicineDialog> {
         type: _selectedType,
         dosage: _dosageController.text.trim(),
         duration: _durationController.text.trim(),
+        quantity: _quantityController.text.trim().isEmpty
+            ? null
+            : _quantityController.text.trim(),
         notes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
@@ -933,7 +1174,7 @@ class _MedicineDialogState extends State<MedicineDialog> {
   }
 }
 
-// New dialog for selecting existing medicines
+// Enhanced existing medicine dialog with better badge visibility
 class ExistingMedicineDialog extends StatefulWidget {
   final List<Medicine> availableMedicines;
   final Function(Medicine) onMedicineSelected;
@@ -960,6 +1201,41 @@ class _ExistingMedicineDialogState extends State<ExistingMedicineDialog> {
       final matchesType = _filterType == null || medicine.type == _filterType;
       return matchesSearch && matchesType;
     }).toList();
+  }
+
+  // Enhanced method to get medicine type color with better visibility
+  Color _getMedicineTypeColor(MedicineType type) {
+    switch (type) {
+      case MedicineType.ayurvedic:
+        return const Color(0xFF2E7D32); // Dark green for Ayurvedic
+      case MedicineType.allopathic:
+        return const Color(0xFF1565C0); // Dark blue for Allopathic
+      case MedicineType.other:
+        return const Color(0xFF6A1B9A); // Dark purple for Other
+    }
+  }
+
+  Color _getMedicineTypeBackgroundColor(MedicineType type) {
+    switch (type) {
+      case MedicineType.ayurvedic:
+        return const Color(0xFF2E7D32).withValues(alpha: 0.1);
+      case MedicineType.allopathic:
+        return const Color(0xFF1565C0).withValues(alpha: 0.1);
+      case MedicineType.other:
+        return const Color(0xFF6A1B9A).withValues(alpha: 0.1);
+    }
+  }
+
+  // Helper method to get medicine type icon
+  IconData _getMedicineTypeIcon(MedicineType type) {
+    switch (type) {
+      case MedicineType.ayurvedic:
+        return MdiIcons.leaf; // Natural/herbal icon for Ayurvedic
+      case MedicineType.allopathic:
+        return MdiIcons.pill; // Pill icon for Allopathic
+      case MedicineType.other:
+        return MdiIcons.bottleTonicPlus; // Tonic bottle for Other
+    }
   }
 
   @override
@@ -993,14 +1269,30 @@ class _ExistingMedicineDialogState extends State<ExistingMedicineDialog> {
                   value: _filterType,
                   hint: const Text('Filter'),
                   items: [
-                    const DropdownMenuItem<MedicineType?>(
+                    const DropdownMenuItem(
                       value: null,
                       child: Text('All Types'),
                     ),
                     ...MedicineType.values.map((type) {
-                      return DropdownMenuItem<MedicineType?>(
+                      return DropdownMenuItem(
                         value: type,
-                        child: Text(type.name.toUpperCase()),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _getMedicineTypeIcon(type),
+                              color: _getMedicineTypeColor(type),
+                              size: 16,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              type.name.toUpperCase(),
+                              style: TextStyle(
+                                color: _getMedicineTypeColor(type),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       );
                     }),
                   ],
@@ -1029,9 +1321,45 @@ class _ExistingMedicineDialogState extends State<ExistingMedicineDialog> {
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Type: ${medicine.typeDisplayName}'),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: _getMedicineTypeBackgroundColor(medicine.type),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: _getMedicineTypeColor(medicine.type),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            _getMedicineTypeIcon(medicine.type),
+                                            size: 12,
+                                            color: _getMedicineTypeColor(medicine.type),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            medicine.typeDisplayName,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                              color: _getMedicineTypeColor(medicine.type),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                                 if (medicine.notes != null && medicine.notes!.isNotEmpty)
-                                  Text('Notes: ${medicine.notes}'),
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text('Notes: ${medicine.notes}'),
+                                  ),
                               ],
                             ),
                             trailing: ElevatedButton(
@@ -1059,7 +1387,7 @@ class _ExistingMedicineDialogState extends State<ExistingMedicineDialog> {
   }
 }
 
-// New dialog for setting prescription details for existing medicines
+// Enhanced prescription dialog with better medicine type visibility
 class PrescriptionDialog extends StatefulWidget {
   final Medicine baseMedicine;
   final Function(Medicine) onSave;
@@ -1088,6 +1416,41 @@ class _PrescriptionDialogState extends State<PrescriptionDialog> {
     super.dispose();
   }
 
+  // Enhanced method to get medicine type color with better visibility
+  Color _getMedicineTypeColor(MedicineType type) {
+    switch (type) {
+      case MedicineType.ayurvedic:
+        return const Color(0xFF2E7D32); // Dark green for Ayurvedic
+      case MedicineType.allopathic:
+        return const Color(0xFF1565C0); // Dark blue for Allopathic
+      case MedicineType.other:
+        return const Color(0xFF6A1B9A); // Dark purple for Other
+    }
+  }
+
+  Color _getMedicineTypeBackgroundColor(MedicineType type) {
+    switch (type) {
+      case MedicineType.ayurvedic:
+        return const Color(0xFF2E7D32).withValues(alpha: 0.1);
+      case MedicineType.allopathic:
+        return const Color(0xFF1565C0).withValues(alpha: 0.1);
+      case MedicineType.other:
+        return const Color(0xFF6A1B9A).withValues(alpha: 0.1);
+    }
+  }
+
+  // Helper method to get medicine type icon
+  IconData _getMedicineTypeIcon(MedicineType type) {
+    switch (type) {
+      case MedicineType.ayurvedic:
+        return MdiIcons.leaf; // Natural/herbal icon for Ayurvedic
+      case MedicineType.allopathic:
+        return MdiIcons.pill; // Pill icon for Allopathic
+      case MedicineType.other:
+        return MdiIcons.bottleTonicPlus; // Tonic bottle for Other
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -1099,30 +1462,55 @@ class _PrescriptionDialogState extends State<PrescriptionDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Medicine info
+              // Enhanced medicine info card
               Card(
-                color: Theme.of(context).colorScheme.surfaceVariant,
+                color: _getMedicineTypeBackgroundColor(widget.baseMedicine.type),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        widget.baseMedicine.name,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
+                      Row(
+                        children: [
+                          Icon(
+                            _getMedicineTypeIcon(widget.baseMedicine.type),
+                            color: _getMedicineTypeColor(widget.baseMedicine.type),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              widget.baseMedicine.name,
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                             ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _getMedicineTypeColor(widget.baseMedicine.type),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              widget.baseMedicine.typeDisplayName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        'Type: ${widget.baseMedicine.typeDisplayName}',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      if (widget.baseMedicine.notes != null && 
-                          widget.baseMedicine.notes!.isNotEmpty)
+                      if (widget.baseMedicine.notes != null &&
+                          widget.baseMedicine.notes!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
                         Text(
                           'Medicine Notes: ${widget.baseMedicine.notes}',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
+                      ],
                     ],
                   ),
                 ),
@@ -1262,10 +1650,10 @@ class _PrescriptionDialogState extends State<PrescriptionDialog> {
       notes: _notesController.text.trim().isEmpty
           ? widget.baseMedicine.notes
           : _notesController.text.trim(),
-      // createdAt: DateTime.now(),
     );
 
     widget.onSave(prescribedMedicine);
     Navigator.pop(context);
   }
 }
+

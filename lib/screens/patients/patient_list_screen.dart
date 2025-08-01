@@ -27,16 +27,35 @@ class _PatientListScreenState extends State<PatientListScreen> {
   @override
   void initState() {
     super.initState();
-    _loadPatients();
+    _setupRealtimeListener();
   }
 
-  void _loadPatients() async {
+  void _setupRealtimeListener() {
     setState(() => _isLoading = true);
-    final result = await _patientService.fetchPatientsOnce();
-    setState(() {
-      _patients = result;
-      _isLoading = false;
-    });
+    _patientService.getPatientsStream().listen(
+      (patients) {
+        if (mounted) {
+          setState(() {
+            _patients = patients;
+            _isLoading = false;
+          });
+        }
+      },
+      onError: (error) {
+        debugPrint('Error listening to patients: $error');
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error loading patients: $error'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      },
+    );
   }
 
   @override
@@ -59,6 +78,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
     return Scaffold(
       appBar: CustomAppBar(
         title: 'Patients',
+        subtitle: 'Manage Patient Records',
         actions: [
           IconButton(
             icon: Icon(MdiIcons.accountPlus),
@@ -316,7 +336,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
               Navigator.pop(context);
               try {
                 await _patientService.deletePatient(patient.id);
-                _loadPatients();
+                // No need to manually call _loadPatients() as real-time listener will update
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(

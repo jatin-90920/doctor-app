@@ -203,13 +203,36 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
           ],
         ),
       ),
-      floatingActionButton: _tabController.index == 1
-          ? FloatingActionButton(
-              onPressed: () => _addTreatment(),
-              tooltip: 'Add Treatment',
-              child: Icon(MdiIcons.plus),
-            )
-          : null,
+      // Enhanced FloatingActionButton - Always show when on treatment tab
+      floatingActionButton: AnimatedBuilder(
+        animation: _tabController,
+        builder: (context, child) {
+          return _tabController.index == 1
+              ? Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    // Quick add treatment button - always visible
+                    FloatingActionButton(
+                      heroTag: "add_treatment",
+                      onPressed: () => _addTreatment(),
+                      tooltip: 'Add New Treatment',
+                      child: Icon(MdiIcons.plus),
+                    ),
+                    const SizedBox(height: 16),
+                    // Additional quick action - view all treatments summary
+                    if (_treatments.isNotEmpty)
+                      FloatingActionButton.small(
+                        heroTag: "treatment_summary",
+                        onPressed: () => _showTreatmentSummary(),
+                        tooltip: 'Treatment Summary',
+                        backgroundColor: Theme.of(context).colorScheme.secondary,
+                        child: Icon(MdiIcons.chartLine, size: 20),
+                      ),
+                  ],
+                )
+              : const SizedBox.shrink();
+        },
+      ),
     );
   }
 
@@ -295,33 +318,66 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                     ],
                   ),
                 ],
-                // Add treatment count indicator
+                // Enhanced treatment count indicator with more details
                 const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.secondary,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        MdiIcons.stethoscope,
-                        size: 14,
-                        color: Theme.of(context).colorScheme.onSecondary,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.secondary,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${_treatments.length} Treatment${_treatments.length != 1 ? 's' : ''}',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            MdiIcons.stethoscope,
+                            size: 14,
+                            color: Theme.of(context).colorScheme.onSecondary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${_treatments.length} Treatment${_treatments.length != 1 ? 's' : ''}',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSecondary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_treatments.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.tertiary,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              MdiIcons.calendar,
+                              size: 14,
+                              color: Theme.of(context).colorScheme.onTertiary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Last: ${DateFormat('dd MMM').format(_treatments.first.visitDate)}',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onTertiary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -414,10 +470,50 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _treatments.length,
+      itemCount: _treatments.length + 1, // +1 for the add button at the end
       itemBuilder: (context, index) {
+        if (index == _treatments.length) {
+          // Add treatment button at the end of the list
+          return Container(
+            margin: const EdgeInsets.only(top: 16, bottom: 80), // Extra bottom margin for FAB
+            child: Card(
+              child: InkWell(
+                onTap: () => _addTreatment(),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      Icon(
+                        MdiIcons.plus,
+                        size: 32,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Add New Treatment',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Record another treatment session',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+        
         final treatment = _treatments[index];
-        return _buildTreatmentCard(treatment, index);
+        return _buildEnhancedTreatmentCard(treatment, index);
       },
     );
   }
@@ -481,7 +577,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
     );
   }
 
-  Widget _buildTreatmentCard(Treatment treatment, int index) {
+  // Enhanced treatment card with quick view details
+  Widget _buildEnhancedTreatmentCard(Treatment treatment, int index) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -492,6 +589,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Header with treatment number and date
               Row(
                 children: [
                   Container(
@@ -520,12 +618,31 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                                   ),
                             ),
                             const Spacer(),
-                            Text(
-                              DateFormat('dd MMM yyyy').format(treatment.visitDate),
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            // Visit Date - Enhanced
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    MdiIcons.calendar,
+                                    size: 14,
                                     color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w500,
                                   ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    DateFormat('dd MMM yyyy').format(treatment.visitDate),
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
@@ -545,71 +662,194 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               
-              // Symptoms
-              _buildTreatmentInfoRow(
-                MdiIcons.accountInjury,
-                'Symptoms',
-                treatment.symptoms,
-              ),
-              
-              // Diagnosis
-              _buildTreatmentInfoRow(
-                MdiIcons.clipboardText,
-                'Diagnosis',
-                treatment.diagnosis,
-              ),
-              
-              // Medicines
-              if (treatment.prescribedMedicines.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Row(
+              // Quick view details in a grid layout
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
                   children: [
-                    Icon(
-                      MdiIcons.pill,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.secondary,
+                    // First row: Symptoms and Diagnosis
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _buildQuickInfoItem(
+                            MdiIcons.accountInjury,
+                            'Symptoms',
+                            treatment.symptoms,
+                            Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildQuickInfoItem(
+                            MdiIcons.clipboardText,
+                            'Diagnosis',
+                            treatment.diagnosis,
+                            Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '${treatment.prescribedMedicines.length} medicine(s) prescribed',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.secondary,
-                              fontWeight: FontWeight.w500,
+                    const SizedBox(height: 12),
+                    
+                    // Second row: Charges and Medicine count
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildQuickInfoItem(
+                            MdiIcons.currencyInr,
+                            'Charges',
+                            treatment.treatmentCharge != null 
+                                ? '₹${treatment.treatmentCharge!.toStringAsFixed(0)}'
+                                : 'Not specified',
+                            Theme.of(context).colorScheme.tertiary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildQuickInfoItem(
+                            MdiIcons.pill,
+                            'Medicines',
+                            '${treatment.prescribedMedicines.length} prescribed',
+                            // Enhanced medicine badge color - more visible
+                            const Color(0xFF2E7D32), // Dark green for better visibility
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    // Medicine details if any
+                    if (treatment.prescribedMedicines.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2E7D32).withValues(alpha: 0.1), // Enhanced visibility
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: const Color(0xFF2E7D32).withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  MdiIcons.pill,
+                                  size: 14,
+                                  color: const Color(0xFF2E7D32),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Prescribed Medicines:',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: const Color(0xFF2E7D32),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              ],
                             ),
+                            const SizedBox(height: 4),
+                            ...treatment.prescribedMedicines.take(2).map((medicine) => 
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '• ${medicine.name}',
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                              fontSize: 11,
+                                            ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Text(
+                                      medicine.dosage,
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            fontSize: 10,
+                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                          ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    if (medicine.quantity != null && medicine.quantity!.isNotEmpty)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          medicine.quantity!,
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                fontSize: 9,
+                                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (treatment.prescribedMedicines.length > 2)
+                              Text(
+                                '... and ${treatment.prescribedMedicines.length - 2} more',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      fontSize: 10,
+                                      fontStyle: FontStyle.italic,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
+                    
+                    // Treatment notes (if any)
+                    if (treatment.notes != null && treatment.notes!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              MdiIcons.noteText,
+                              size: 14,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                treatment.notes!,
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      fontSize: 11,
+                                    ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  treatment.prescribedMedicines
-                      .map((m) => m.name)
-                      .take(3)
-                      .join(', ') +
-                      (treatment.prescribedMedicines.length > 3 
-                          ? ' and ${treatment.prescribedMedicines.length - 3} more...' 
-                          : ''),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontStyle: FontStyle.italic,
-                      ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-              
-              // Treatment notes (if any)
-              if (treatment.notes != null && treatment.notes!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                _buildTreatmentInfoRow(
-                  MdiIcons.noteText,
-                  'Notes',
-                  treatment.notes!,
-                ),
-              ],
+              ),
             ],
           ),
         ),
@@ -617,44 +857,38 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
     );
   }
 
-  Widget _buildTreatmentInfoRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            icon,
-            size: 16,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: RichText(
-              text: TextSpan(
-                style: Theme.of(context).textTheme.bodySmall,
-                children: [
-                  TextSpan(
-                    text: '$label: ',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  TextSpan(
-                    text: value,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                ],
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+  Widget _buildQuickInfoItem(IconData icon, String label, String value, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: color,
             ),
-          ),
-        ],
-      ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                  ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontSize: 11,
+              ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
     );
   }
 
@@ -682,13 +916,23 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
     
     // No need to manually refresh treatments as they are updated via stream
     if (result == true) {
-      // Optional: Show success message
+      // Optional: Show success message and ensure we're on the treatment tab
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Treatment added successfully'),
           backgroundColor: Theme.of(context).colorScheme.primary,
+          action: SnackBarAction(
+            label: 'Add Another',
+            textColor: Theme.of(context).colorScheme.onPrimary,
+            onPressed: () => _addTreatment(),
+          ),
         ),
       );
+      
+      // Ensure we're on the treatment history tab
+      if (_tabController.index != 1) {
+        _tabController.animateTo(1);
+      }
     }
   }
 
@@ -697,6 +941,79 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
       context,
       MaterialPageRoute(
         builder: (context) => TreatmentDetailScreen(treatmentId: treatment.id),
+      ),
+    );
+  }
+
+  void _showTreatmentSummary() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(MdiIcons.chartLine),
+            const SizedBox(width: 8),
+            const Text('Treatment Summary'),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSummaryRow('Total Treatments', '${_treatments.length}'),
+              _buildSummaryRow('First Visit', 
+                _treatments.isNotEmpty 
+                  ? DateFormat('dd MMM yyyy').format(_treatments.last.visitDate)
+                  : 'N/A'
+              ),
+              _buildSummaryRow('Last Visit', 
+                _treatments.isNotEmpty 
+                  ? DateFormat('dd MMM yyyy').format(_treatments.first.visitDate)
+                  : 'N/A'
+              ),
+              _buildSummaryRow('Total Medicines', 
+                '${_treatments.fold<int>(0, (sum, t) => sum + t.prescribedMedicines.length)}'
+              ),
+              _buildSummaryRow('Total Charges', 
+                _treatments.where((t) => t.treatmentCharge != null).isNotEmpty
+                  ? '₹${_treatments.where((t) => t.treatmentCharge != null).fold<double>(0, (sum, t) => sum + t.treatmentCharge!).toStringAsFixed(0)}'
+                  : 'Not specified'
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+          ),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ],
       ),
     );
   }
@@ -779,3 +1096,4 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
     );
   }
 }
+

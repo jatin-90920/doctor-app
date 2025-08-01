@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -54,10 +51,19 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyB6Sp95DkVwQHIGA0L8XXVX27tcTzL3Kn0',
-    appId: '1:117368663381:android:cb7d938946b326b22113dc',
+    appId: '1:117368663381:web:d2fe546e28699c1a2113dc',
     messagingSenderId: '117368663381',
     projectId: 'doctor-crm-30d6f',
     storageBucket: 'doctor-crm-30d6f.firebasestorage.app',
   );
 
+  static const FirebaseOptions web = FirebaseOptions(
+      apiKey: "AIzaSyDQYli6vROIwdt9rP5iAJTz8JIdUUqnkX0",
+      authDomain: "doctor-crm-30d6f.firebaseapp.com",
+      projectId: "doctor-crm-30d6f",
+      storageBucket: "doctor-crm-30d6f.firebasestorage.app",
+      messagingSenderId: "117368663381",
+      appId: "1:117368663381:web:d2fe546e28699c1a2113dc",
+      measurementId: "G-KT19ZXVT5Q"
+      );
 }

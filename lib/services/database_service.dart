@@ -23,8 +23,9 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // Increment version for schema changes
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
   }
 
@@ -55,6 +56,7 @@ class DatabaseService {
         symptoms TEXT NOT NULL,
         diagnosis TEXT NOT NULL,
         notes TEXT,
+        treatment_charge REAL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER,
         FOREIGN KEY (patient_id) REFERENCES patients (id) ON DELETE CASCADE
@@ -70,6 +72,7 @@ class DatabaseService {
         type TEXT NOT NULL,
         dosage TEXT NOT NULL,
         duration TEXT NOT NULL,
+        quantity TEXT,
         notes TEXT,
         FOREIGN KEY (treatment_id) REFERENCES treatments (id) ON DELETE CASCADE
       )
@@ -80,6 +83,16 @@ class DatabaseService {
     await db.execute('CREATE INDEX idx_treatments_patient ON treatments(patient_id)');
     await db.execute('CREATE INDEX idx_treatments_date ON treatments(visit_date)');
     await db.execute('CREATE INDEX idx_medicines_treatment ON treatment_medicines(treatment_id)');
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add treatment_charge column to treatments table
+      await db.execute('ALTER TABLE treatments ADD COLUMN treatment_charge REAL');
+      
+      // Add quantity column to treatment_medicines table
+      await db.execute('ALTER TABLE treatment_medicines ADD COLUMN quantity TEXT');
+    }
   }
 
   // Patient CRUD operations

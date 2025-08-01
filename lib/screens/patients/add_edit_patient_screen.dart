@@ -73,6 +73,7 @@ class _AddEditPatientScreenState extends State<AddEditPatientScreen> {
     return Scaffold(
       appBar: CustomAppBar(
         title: _isEditing ? 'Edit Patient' : 'Add Patient',
+        subtitle: _isEditing ? 'Update patient information' : 'Create new patient record',
         actions: [
           TextButton(
             onPressed: _isLoading ? null : _savePatient,

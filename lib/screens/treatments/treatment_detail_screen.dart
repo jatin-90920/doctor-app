@@ -9,6 +9,7 @@ import 'package:ayurvedic_doctor_crm/screens/treatments/add_edit_treatment_scree
 import 'package:ayurvedic_doctor_crm/widgets/custom_app_bar.dart';
 import 'package:ayurvedic_doctor_crm/widgets/loading_widget.dart';
 import 'package:ayurvedic_doctor_crm/widgets/empty_state_widget.dart';
+import 'package:ayurvedic_doctor_crm/services/pdf_service.dart';
 
 class TreatmentDetailScreen extends StatefulWidget {
   final String treatmentId;
@@ -561,11 +562,11 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
                       colors: [
                         Theme.of(context)
                             .colorScheme
-                            .surfaceVariant
+                            .surfaceContainerHighest
                             .withValues(alpha: 0.3),
                         Theme.of(context)
                             .colorScheme
-                            .surfaceVariant
+                            .surfaceContainerHighest
                             .withValues(alpha: 0.1),
                       ],
                       begin: Alignment.topLeft,
@@ -743,7 +744,7 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
               decoration: BoxDecoration(
                 color: Theme.of(context)
                     .colorScheme
-                    .surfaceVariant
+                    .surfaceContainerHighest
                     .withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
@@ -862,22 +863,66 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
     }
   }
 
-  void _generateReport() {
-    // TODO: Implement PDF report generation
+ void _generateReport() async {
+  // Ensure required data is present.
+  if (_treatment == null || _patient == null) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Row(
           children: [
-            Icon(Icons.info_outline, color: Colors.white),
+            Icon(Icons.error_outline, color: Colors.white),
             SizedBox(width: 12),
-            Text('PDF report generation will be implemented'),
+            Text('Cannot generate PDF: treatment or patient missing'),
+          ],
+        ),
+        backgroundColor: Theme.of(context).colorScheme.error,
+      ),
+    );
+    return;
+  }
+  try {
+    // Generate PDF file using your service.
+    final pdfFile = await PdfService.generateTreatmentReport(
+      patient: _patient!,
+      treatment: _treatment!,
+    );
+
+    // Optional: show share/print or notify
+    await PdfService.sharePdf(pdfFile);
+    // Or, to directly print:
+    // await PdfService.printPdf(pdfFile);
+
+    // Show success notification
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 12),
+            Text('PDF treatment report generated'),
           ],
         ),
         backgroundColor: Theme.of(context).colorScheme.primary,
-        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  } catch (e) {
+    // Handle any error.
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text('Failed to generate PDF: ${e.toString()}'),
+            ),
+          ],
+        ),
+        backgroundColor: Theme.of(context).colorScheme.error,
       ),
     );
   }
+}
 
   void _handleMenuAction(String action) {
     switch (action) {

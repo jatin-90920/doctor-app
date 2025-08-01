@@ -1,10 +1,10 @@
 # Project-level configuration.
-cmake_minimum_required(VERSION 3.14)
-project(doctor_app LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.10)
+project(ayurvedic_doctor_crm LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "doctor_app")
+set(BINARY_NAME "ayurvedic_doctor_crm")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

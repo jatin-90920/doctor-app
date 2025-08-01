@@ -3,9 +3,11 @@ import 'package:uuid/uuid.dart';
 import 'package:ayurvedic_doctor_crm/models/treatment.dart';
 import 'package:ayurvedic_doctor_crm/models/medicine.dart';
 import 'package:ayurvedic_doctor_crm/services/database_service.dart';
+import 'package:ayurvedic_doctor_crm/services/treatment_firestore_service.dart';
 
 class TreatmentService extends ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService.instance;
+  final TreatmentFirestoreService _firestoreService = TreatmentFirestoreService();
   final Uuid _uuid = const Uuid();
   
   List<Treatment> _treatments = [];
@@ -13,6 +15,29 @@ class TreatmentService extends ChangeNotifier {
 
   List<Treatment> get treatments => _treatments;
   bool get isLoading => _isLoading;
+
+  // Add real-time listener for treatments
+  void startListeningToTreatments() {
+    _firestoreService.getTreatmentsStream().listen(
+      (treatments) {
+        _treatments = treatments;
+        notifyListeners();
+      },
+      onError: (error) {
+        debugPrint('Error listening to treatments: $error');
+      },
+    );
+  }
+
+  // Method to manually refresh treatments
+  Future<void> refreshTreatments() async {
+    try {
+      _treatments = await _firestoreService.fetchTreatmentsOnce();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error refreshing treatments: $e');
+    }
+  }
 
   Future<void> loadTreatmentsByPatient(String patientId) async {
     _isLoading = true;
@@ -43,6 +68,7 @@ class TreatmentService extends ChangeNotifier {
     required String symptoms,
     required String diagnosis,
     String? notes,
+    double? treatmentCharge,
     required List<Medicine> prescribedMedicines,
   }) async {
     try {
@@ -53,6 +79,7 @@ class TreatmentService extends ChangeNotifier {
         symptoms: symptoms,
         diagnosis: diagnosis,
         notes: notes,
+        treatmentCharge: treatmentCharge,
         prescribedMedicines: prescribedMedicines,
         createdAt: DateTime.now(),
       );
@@ -73,6 +100,7 @@ class TreatmentService extends ChangeNotifier {
     required String symptoms,
     required String diagnosis,
     String? notes,
+    double? treatmentCharge,
     required List<Medicine> prescribedMedicines,
   }) async {
     try {
@@ -84,6 +112,7 @@ class TreatmentService extends ChangeNotifier {
         symptoms: symptoms,
         diagnosis: diagnosis,
         notes: notes,
+        treatmentCharge: treatmentCharge,
         prescribedMedicines: prescribedMedicines,
         updatedAt: DateTime.now(),
       );
@@ -114,6 +143,7 @@ class TreatmentService extends ChangeNotifier {
     required MedicineType type,
     required String dosage,
     required String duration,
+    String? quantity,
     String? notes,
   }) {
     return Medicine(
@@ -122,6 +152,7 @@ class TreatmentService extends ChangeNotifier {
       type: type,
       dosage: dosage,
       duration: duration,
+      quantity: quantity,
       notes: notes,
     );
   }
@@ -227,5 +258,34 @@ class TreatmentService extends ChangeNotifier {
       'Continue as advised',
     ];
   }
-}
 
+  List<String> getCommonQuantities() {
+    return [
+      '1 tablet',
+      '2 tablets',
+      '3 tablets',
+      '1 capsule',
+      '2 capsules',
+      '3 capsules',
+      '1 bottle',
+      '2 bottles',
+      '1 packet',
+      '2 packets',
+      '1 strip',
+      '2 strips',
+      '10 tablets',
+      '20 tablets',
+      '30 tablets',
+      '100ml',
+      '200ml',
+      '500ml',
+      '1 tube',
+      '2 tubes',
+      '1 vial',
+      '2 vials',
+      '1 box',
+      '2 boxes',
+      'As prescribed',
+    ];
+  }
+}

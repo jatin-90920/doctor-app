@@ -11,6 +11,7 @@ class Treatment {
   final String symptoms;
   final String diagnosis;
   final String? notes;
+  final double? treatmentCharge;
   final List<Medicine> prescribedMedicines;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -22,6 +23,7 @@ class Treatment {
     required this.symptoms,
     required this.diagnosis,
     this.notes,
+    this.treatmentCharge,
     required this.prescribedMedicines,
     required this.createdAt,
     this.updatedAt,
@@ -39,6 +41,7 @@ class Treatment {
       'symptoms': symptoms,
       'diagnosis': diagnosis,
       'notes': notes,
+      'treatment_charge': treatmentCharge,
       'created_at': createdAt.millisecondsSinceEpoch,
       'updated_at': updatedAt?.millisecondsSinceEpoch,
     };
@@ -52,6 +55,7 @@ class Treatment {
       symptoms: map['symptoms'],
       diagnosis: map['diagnosis'],
       notes: map['notes'],
+      treatmentCharge: map['treatment_charge']?.toDouble(),
       prescribedMedicines: [], // Will be loaded separately
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at']),
       updatedAt: map['updated_at'] != null 
@@ -67,6 +71,7 @@ class Treatment {
     String? symptoms,
     String? diagnosis,
     String? notes,
+    double? treatmentCharge,
     List<Medicine>? prescribedMedicines,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -78,6 +83,7 @@ class Treatment {
       symptoms: symptoms ?? this.symptoms,
       diagnosis: diagnosis ?? this.diagnosis,
       notes: notes ?? this.notes,
+      treatmentCharge: treatmentCharge ?? this.treatmentCharge,
       prescribedMedicines: prescribedMedicines ?? this.prescribedMedicines,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

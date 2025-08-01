@@ -15,6 +15,7 @@ class Medicine {
   final MedicineType type;
   final String dosage;
   final String duration;
+  final String? quantity;
   final String? notes;
 
   Medicine({
@@ -23,6 +24,7 @@ class Medicine {
     required this.type,
     required this.dosage,
     required this.duration,
+    this.quantity,
     this.notes,
   });
 
@@ -37,6 +39,7 @@ class Medicine {
       'type': type.name,
       'dosage': dosage,
       'duration': duration,
+      'quantity': quantity,
       'notes': notes,
     };
   }
@@ -51,6 +54,7 @@ class Medicine {
       ),
       dosage: map['dosage'],
       duration: map['duration'],
+      quantity: map['quantity'],
       notes: map['notes'],
     );
   }
@@ -61,6 +65,7 @@ class Medicine {
     MedicineType? type,
     String? dosage,
     String? duration,
+    String? quantity,
     String? notes,
   }) {
     return Medicine(
@@ -69,6 +74,7 @@ class Medicine {
       type: type ?? this.type,
       dosage: dosage ?? this.dosage,
       duration: duration ?? this.duration,
+      quantity: quantity ?? this.quantity,
       notes: notes ?? this.notes,
     );
   }

@@ -14,6 +14,8 @@ import 'package:ayurvedic_doctor_crm/screens/patients/add_edit_patient_screen.da
 import 'package:ayurvedic_doctor_crm/screens/settings/settings_screen.dart';
 import 'package:ayurvedic_doctor_crm/widgets/custom_app_bar.dart';
 import 'package:ayurvedic_doctor_crm/widgets/loading_widget.dart';
+import 'package:ayurvedic_doctor_crm/widgets/daily_report_widget.dart';
+import 'package:ayurvedic_doctor_crm/widgets/backup_options_dialog.dart';
 import 'package:ayurvedic_doctor_crm/models/treatment.dart';
 import 'package:ayurvedic_doctor_crm/models/patient.dart';
 
@@ -381,13 +383,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             continue;
           }
 
-          final fullName = row[1]?.value?.toString()?.trim();
+          final fullName = row[1]?.value?.toString().trim();
           if (fullName == null || fullName.isEmpty) {
             errors.add('Row ${i + 1}: Full name is required');
             continue;
           }
 
-          final gender = row[4]?.value?.toString()?.trim();
+          final gender = row[4]?.value?.toString().trim();
           if (gender == null || !['Male', 'Female', 'Other'].contains(gender)) {
             errors.add(
                 'Row ${i + 1}: Invalid gender (must be Male, Female, or Other)');
@@ -396,7 +398,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
           // Parse date of birth
           DateTime? dateOfBirth;
-          final dobString = row[5]?.value?.toString()?.trim();
+          final dobString = row[5]?.value?.toString().trim();
           if (dobString != null && dobString.isNotEmpty) {
             try {
               dateOfBirth = DateFormat('dd/MM/yyyy').parse(dobString);
@@ -409,14 +411,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
           // Create patient object
           final patient = Patient(
-            id: DateTime.now().millisecondsSinceEpoch.toString() + '_$i',
+            id: '${DateTime.now().millisecondsSinceEpoch}_$i',
             fullName: fullName,
-            phone: row[2]?.value?.toString()?.trim(),
-            email: row[3]?.value?.toString()?.trim(),
+            phone: row[2]?.value?.toString().trim(),
+            email: row[3]?.value?.toString().trim(),
             gender: gender,
             dateOfBirth: dateOfBirth,
-            address: row[7]?.value?.toString()?.trim(),
-            medicalHistory: row[8]?.value?.toString()?.trim(),
+            address: row[7]?.value?.toString().trim(),
+            medicalHistory: row[8]?.value?.toString().trim(),
             createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
           );
@@ -477,10 +479,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Import completed: $successCount patients imported successfully' +
-                (importErrors.isNotEmpty
+            'Import completed: $successCount patients imported successfully${importErrors.isNotEmpty
                     ? ', ${importErrors.length} failed'
-                    : ''),
+                    : ''}',
           ),
           backgroundColor: successCount > 0
               ? Theme.of(context).colorScheme.primary
@@ -593,7 +594,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CustomAppBar(
-        title: 'Ayurvedic CRM',
+        title: 'Ayurvedic Doctor CRM',
+        subtitle: 'Dashboard & Overview',
+        showGradient: true,
         actions: [
           IconButton(
             icon: Icon(MdiIcons.cog),
@@ -612,6 +615,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   _buildWelcomeCard(),
                   const SizedBox(height: 16),
                   _buildStatsCards(),
+                  const SizedBox(height: 16),
+                  const DailyReportWidget(),
                   const SizedBox(height: 16),
                   _buildQuickActions(),
                   const SizedBox(height: 16),
@@ -830,9 +835,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildActionButton(
-                    icon: MdiIcons.cloudUpload,
-                    label: 'Backup',
-                    onPressed: () => _exportPatientsData(),
+                    icon: MdiIcons.fileExcel,
+                    label: 'Excel Backup',
+                    onPressed: () => _showBackupOptionsDialog(),
                   ),
                 ),
               ],
@@ -1015,5 +1020,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
     // Refresh data when returning from settings
     _loadDashboardData();
+  }
+
+  void _showBackupOptionsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => const BackupOptionsDialog(),
+    );
   }
 }
