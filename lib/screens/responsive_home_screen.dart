@@ -393,8 +393,9 @@ class _ResponsiveHomeScreenState extends State<ResponsiveHomeScreen> with Widget
   Widget _buildStatsCards() {
     return ResponsiveGrid(
       mobileColumns: 1,
-      tabletColumns: 2,
-      desktopColumns: 2,
+      tabletColumns: 1,
+      smallLaptopColumns: 1,
+      desktopColumns: 1,
       children: [
         EnhancedStatCard(
           icon: MdiIcons.accountGroup,
@@ -496,8 +497,8 @@ class _ResponsiveHomeScreenState extends State<ResponsiveHomeScreen> with Widget
       color: EnhancedAppTheme.accentGreen,
       content: ResponsiveGrid(
         mobileColumns: 2,
-        tabletColumns: 2,
-        desktopColumns: 4,
+        tabletColumns: 1,
+        desktopColumns: 2,
         children: [
           EnhancedActionCard(
             icon: MdiIcons.accountPlus,

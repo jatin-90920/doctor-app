@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ayurvedic_doctor_crm/services/patient_firestore_service.dart';
 import 'package:ayurvedic_doctor_crm/services/treatment_firestore_service.dart';
 import 'package:flutter/material.dart';
@@ -22,19 +24,23 @@ class PatientDetailScreen extends StatefulWidget {
 }
 
 class _PatientDetailScreenState extends State<PatientDetailScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   Patient? _patient;
   List<Treatment> _treatments = [];
   bool _isLoading = true;
   bool _isTreatmentsLoading = false;
-  
+
   final _patientService = PatientFirestoreService();
   final _treatmentService = TreatmentFirestoreService();
+
+  // Add stream subscription to manage it properly
+  StreamSubscription<List<Treatment>>? _treatmentsSubscription;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // Add lifecycle observer
     _tabController = TabController(length: 2, vsync: this);
     _loadPatientData();
     _setupTreatmentListener();
@@ -42,7 +48,9 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // Remove observer
     _tabController.dispose();
+    _treatmentsSubscription?.cancel(); // Cancel subscription
     super.dispose();
   }
 
@@ -77,8 +85,26 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
     }
   }
 
+  // Handle app lifecycle changes
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      // Refresh treatment listener when app resumes
+      _setupTreatmentListener();
+    }
+  }
+
+  // Updated method to properly manage stream subscription
   void _setupTreatmentListener() {
-    _treatmentService.getTreatmentsByPatientId(widget.patientId).listen(
+    setState(() => _isTreatmentsLoading = true);
+
+    // Cancel existing subscription if any
+    _treatmentsSubscription?.cancel();
+
+    // Set up new subscription
+    _treatmentsSubscription =
+        _treatmentService.getTreatmentsByPatientId(widget.patientId).listen(
       (treatments) {
         if (mounted) {
           setState(() {
@@ -93,6 +119,12 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
           setState(() {
             _isTreatmentsLoading = false;
           });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error loading treatments: $error'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
         }
       },
     );
@@ -100,7 +132,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
 
   Future<void> _refreshData() async {
     await _loadPatientData();
-    // Treatments will be automatically updated via stream
+    // Re-establish treatment listener on manual refresh
+    _setupTreatmentListener();
   }
 
   @override
@@ -156,51 +189,60 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
       ),
       body: RefreshIndicator(
         onRefresh: _refreshData,
-        child: Column(
-          children: [
-            _buildPatientHeader(),
-            TabBar(
-              controller: _tabController,
-              tabs: [
-                const Tab(text: 'Basic Info'),
-                Tab(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('Treatment History'),
-                      if (_treatments.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${_treatments.length}',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onPrimary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: _getMaxWidth(context), // Responsive max width
+            ),
+            child: Column(
+              children: [
+                _buildPatientHeader(),
+                TabBar(
+                  controller: _tabController,
+                  tabs: [
+                    const Tab(text: 'Basic Info'),
+                    Tab(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('Treatment History'),
+                          if (_treatments.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '${_treatments.length}',
+                                style: TextStyle(
+                                  color:
+                                      Theme.of(context).colorScheme.onPrimary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildBasicInfoTab(),
+                      _buildTreatmentHistoryTab(),
                     ],
                   ),
                 ),
               ],
             ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildBasicInfoTab(),
-                  _buildTreatmentHistoryTab(),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
       // Enhanced FloatingActionButton - Always show when on treatment tab
@@ -225,7 +267,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                         heroTag: "treatment_summary",
                         onPressed: () => _showTreatmentSummary(),
                         tooltip: 'Treatment Summary',
-                        backgroundColor: Theme.of(context).colorScheme.secondary,
+                        backgroundColor:
+                            Theme.of(context).colorScheme.secondary,
                         child: Icon(MdiIcons.chartLine, size: 20),
                       ),
                   ],
@@ -234,6 +277,19 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
         },
       ),
     );
+  }
+
+  // Add this helper method to determine responsive max width
+  double _getMaxWidth(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    if (screenWidth > 1200) {
+      return 800.0; // Large desktop screens
+    } else if (screenWidth > 800) {
+      return 600.0; // Tablet and small desktop
+    } else {
+      return double.infinity; // Mobile - full width
+    }
   }
 
   Widget _buildPatientHeader() {
@@ -255,8 +311,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
               _patient!.fullName.isNotEmpty
                   ? _patient!.fullName[0].toUpperCase()
                   : '?',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onPrimary,
+              style: const TextStyle(
+                color: Colors.white,
                 fontWeight: FontWeight.bold,
                 fontSize: 24,
               ),
@@ -271,7 +327,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                   _patient!.fullName,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        color: Colors.white,
                       ),
                 ),
                 const SizedBox(height: 4),
@@ -284,15 +340,13 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                               ? MdiIcons.genderFemale
                               : MdiIcons.genderMaleFemale,
                       size: 18,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      color: Colors.white,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '${_patient!.gender}, ${_patient!.displayAge} years',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onPrimaryContainer,
+                            color: Colors.white,
                           ),
                     ),
                   ],
@@ -323,7 +377,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.secondary,
                         borderRadius: BorderRadius.circular(12),
@@ -351,7 +406,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                     if (_treatments.isNotEmpty) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: Theme.of(context).colorScheme.tertiary,
                           borderRadius: BorderRadius.circular(12),
@@ -475,7 +531,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
         if (index == _treatments.length) {
           // Add treatment button at the end of the list
           return Container(
-            margin: const EdgeInsets.only(top: 16, bottom: 80), // Extra bottom margin for FAB
+            margin: const EdgeInsets.only(
+                top: 16, bottom: 80), // Extra bottom margin for FAB
             child: Card(
               child: InkWell(
                 onTap: () => _addTreatment(),
@@ -492,16 +549,19 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                       const SizedBox(height: 8),
                       Text(
                         'Add New Treatment',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Record another treatment session',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
                             ),
                       ),
                     ],
@@ -511,7 +571,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
             ),
           );
         }
-        
+
         final treatment = _treatments[index];
         return _buildEnhancedTreatmentCard(treatment, index);
       },
@@ -595,7 +655,10 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
@@ -613,16 +676,22 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                           children: [
                             Text(
                               'Treatment #${_treatments.length - index}',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
                                     fontWeight: FontWeight.w600,
                                   ),
                             ),
                             const Spacer(),
                             // Visit Date - Enhanced
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
@@ -631,13 +700,21 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                                   Icon(
                                     MdiIcons.calendar,
                                     size: 14,
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    DateFormat('dd MMM yyyy').format(treatment.visitDate),
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    DateFormat('dd MMM yyyy')
+                                        .format(treatment.visitDate),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
                                           fontWeight: FontWeight.w500,
                                         ),
                                   ),
@@ -648,9 +725,12 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                         ),
                         Text(
                           DateFormat('hh:mm a').format(treatment.visitDate),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
                         ),
                       ],
                     ),
@@ -663,12 +743,15 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                 ],
               ),
               const SizedBox(height: 16),
-              
+
               // Quick view details in a grid layout
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest
+                      .withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
@@ -697,7 +780,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                       ],
                     ),
                     const SizedBox(height: 12),
-                    
+
                     // Second row: Charges and Medicine count
                     Row(
                       children: [
@@ -705,7 +788,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                           child: _buildQuickInfoItem(
                             MdiIcons.currencyInr,
                             'Charges',
-                            treatment.treatmentCharge != null 
+                            treatment.treatmentCharge != null
                                 ? '₹${treatment.treatmentCharge!.toStringAsFixed(0)}'
                                 : 'Not specified',
                             Theme.of(context).colorScheme.tertiary,
@@ -718,12 +801,13 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                             'Medicines',
                             '${treatment.prescribedMedicines.length} prescribed',
                             // Enhanced medicine badge color - more visible
-                            const Color(0xFF2E7D32), // Dark green for better visibility
+                            const Color(
+                                0xFF2E7D32), // Dark green for better visibility
                           ),
                         ),
                       ],
                     ),
-                    
+
                     // Medicine details if any
                     if (treatment.prescribedMedicines.isNotEmpty) ...[
                       const SizedBox(height: 12),
@@ -731,10 +815,12 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                         width: double.infinity,
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2E7D32).withValues(alpha: 0.1), // Enhanced visibility
+                          color: const Color(0xFF2E7D32)
+                              .withValues(alpha: 0.1), // Enhanced visibility
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                            color: const Color(0xFF2E7D32).withValues(alpha: 0.3),
+                            color:
+                                const Color(0xFF2E7D32).withValues(alpha: 0.3),
                           ),
                         ),
                         child: Column(
@@ -750,7 +836,10 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                                 const SizedBox(width: 4),
                                 Text(
                                   'Prescribed Medicines:',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
                                         color: const Color(0xFF2E7D32),
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -758,70 +847,98 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                               ],
                             ),
                             const SizedBox(height: 4),
-                            ...treatment.prescribedMedicines.take(2).map((medicine) => 
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 2),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        '• ${medicine.name}',
-                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                              fontSize: 11,
-                                            ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    Text(
-                                      medicine.dosage,
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                            fontSize: 10,
-                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ...treatment.prescribedMedicines.take(2).map(
+                                  (medicine) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 2),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            '• ${medicine.name}',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  fontSize: 11,
+                                                ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    if (medicine.quantity != null && medicine.quantity!.isNotEmpty)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
-                                          borderRadius: BorderRadius.circular(4),
                                         ),
-                                        child: Text(
-                                          medicine.quantity!,
-                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                fontSize: 9,
-                                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        Text(
+                                          medicine.dosage,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                fontSize: 10,
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
                                               ),
                                         ),
-                                      ),
-                                  ],
+                                        const SizedBox(width: 8),
+                                        if (medicine.quantity != null &&
+                                            medicine.quantity!.isNotEmpty)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 4, vertical: 1),
+                                            decoration: BoxDecoration(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .outline
+                                                  .withValues(alpha: 0.2),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              medicine.quantity!,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    fontSize: 9,
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                                  ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
                             if (treatment.prescribedMedicines.length > 2)
                               Text(
                                 '... and ${treatment.prescribedMedicines.length - 2} more',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
                                       fontSize: 10,
                                       fontStyle: FontStyle.italic,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
                                     ),
                               ),
                           ],
                         ),
                       ),
                     ],
-                    
+
                     // Treatment notes (if any)
-                    if (treatment.notes != null && treatment.notes!.isNotEmpty) ...[
+                    if (treatment.notes != null &&
+                        treatment.notes!.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest
+                              .withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Row(
@@ -830,13 +947,18 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                             Icon(
                               MdiIcons.noteText,
                               size: 14,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
                             ),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 treatment.notes!,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
                                       fontSize: 11,
                                     ),
                                 maxLines: 2,
@@ -857,7 +979,8 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
     );
   }
 
-  Widget _buildQuickInfoItem(IconData icon, String label, String value, Color color) {
+  Widget _buildQuickInfoItem(
+      IconData icon, String label, String value, Color color) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -899,12 +1022,13 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
         builder: (context) => AddEditPatientScreen(patient: _patient),
       ),
     );
-    
+
     if (result == true) {
       _loadPatientData();
     }
   }
 
+  // Updated _addTreatment method with explicit refresh
   void _addTreatment() async {
     final result = await Navigator.push(
       context,
@@ -913,10 +1037,12 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
             AddEditTreatmentScreen(patientId: widget.patientId),
       ),
     );
-    
-    // No need to manually refresh treatments as they are updated via stream
+
+    // Force refresh the treatment stream when returning
     if (result == true) {
-      // Optional: Show success message and ensure we're on the treatment tab
+      // Re-establish the stream listener
+      _setupTreatmentListener();
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Treatment added successfully'),
@@ -928,11 +1054,14 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
           ),
         ),
       );
-      
+
       // Ensure we're on the treatment history tab
       if (_tabController.index != 1) {
         _tabController.animateTo(1);
       }
+    } else {
+      // Even if result is not true, refresh the stream to ensure data is up-to-date
+      _setupTreatmentListener();
     }
   }
 
@@ -963,24 +1092,25 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildSummaryRow('Total Treatments', '${_treatments.length}'),
-              _buildSummaryRow('First Visit', 
-                _treatments.isNotEmpty 
-                  ? DateFormat('dd MMM yyyy').format(_treatments.last.visitDate)
-                  : 'N/A'
-              ),
-              _buildSummaryRow('Last Visit', 
-                _treatments.isNotEmpty 
-                  ? DateFormat('dd MMM yyyy').format(_treatments.first.visitDate)
-                  : 'N/A'
-              ),
-              _buildSummaryRow('Total Medicines', 
-                '${_treatments.fold<int>(0, (sum, t) => sum + t.prescribedMedicines.length)}'
-              ),
-              _buildSummaryRow('Total Charges', 
-                _treatments.where((t) => t.treatmentCharge != null).isNotEmpty
-                  ? '₹${_treatments.where((t) => t.treatmentCharge != null).fold<double>(0, (sum, t) => sum + t.treatmentCharge!).toStringAsFixed(0)}'
-                  : 'Not specified'
-              ),
+              _buildSummaryRow(
+                  'First Visit',
+                  _treatments.isNotEmpty
+                      ? DateFormat('dd MMM yyyy')
+                          .format(_treatments.last.visitDate)
+                      : 'N/A'),
+              _buildSummaryRow(
+                  'Last Visit',
+                  _treatments.isNotEmpty
+                      ? DateFormat('dd MMM yyyy')
+                          .format(_treatments.first.visitDate)
+                      : 'N/A'),
+              _buildSummaryRow('Total Medicines',
+                  '${_treatments.fold<int>(0, (sum, t) => sum + t.prescribedMedicines.length)}'),
+              _buildSummaryRow(
+                  'Total Charges',
+                  _treatments.where((t) => t.treatmentCharge != null).isNotEmpty
+                      ? '₹${_treatments.where((t) => t.treatmentCharge != null).fold<double>(0, (sum, t) => sum + t.treatmentCharge!).toStringAsFixed(0)}'
+                      : 'Not specified'),
             ],
           ),
         ),
@@ -1042,7 +1172,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              
+
               try {
                 // Show loading
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -1060,10 +1190,10 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                     ),
                   ),
                 );
-                
+
                 // Delete patient
                 await _patientService.deletePatient(_patient!.id);
-                
+
                 if (mounted) {
                   ScaffoldMessenger.of(context).hideCurrentSnackBar();
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -1072,14 +1202,16 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                       backgroundColor: Theme.of(context).colorScheme.primary,
                     ),
                   );
-                  Navigator.pop(context, true); // Return true to indicate deletion
+                  Navigator.pop(
+                      context, true); // Return true to indicate deletion
                 }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).hideCurrentSnackBar();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Failed to delete patient: ${e.toString()}'),
+                      content:
+                          Text('Failed to delete patient: ${e.toString()}'),
                       backgroundColor: Theme.of(context).colorScheme.error,
                     ),
                   );
@@ -1096,4 +1228,3 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
     );
   }
 }
-

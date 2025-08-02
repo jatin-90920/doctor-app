@@ -135,23 +135,28 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
       ),
       body: Form(
         key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _buildVisitDateSection(),
-            const SizedBox(height: 24),
-            _buildTreatmentChargeSection(),
-            const SizedBox(height: 24),
-            _buildSymptomsSection(),
-            const SizedBox(height: 24),
-            _buildDiagnosisSection(),
-            const SizedBox(height: 24),
-            _buildMedicinesSection(),
-            const SizedBox(height: 24),
-            _buildNotesSection(),
-            const SizedBox(height: 32),
-            _buildSaveButton(),
-          ],
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildVisitDateSection(),
+                const SizedBox(height: 24),
+                _buildTreatmentChargeSection(),
+                const SizedBox(height: 24),
+                _buildSymptomsSection(),
+                const SizedBox(height: 24),
+                _buildDiagnosisSection(),
+                const SizedBox(height: 24),
+                _buildMedicinesSection(),
+                const SizedBox(height: 24),
+                _buildNotesSection(),
+                const SizedBox(height: 32),
+                _buildSaveButton(),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -738,15 +743,15 @@ class _AddEditTreatmentScreenState extends State<AddEditTreatmentScreen> {
       if (_isEditing) {
         await firestoreService.updateTreatment(treatment);
         // Notify the treatment service about the update
-        if (mounted) {
-          Provider.of<TreatmentService>(context, listen: false).notifyListeners();
-        }
+        // if (mounted) {
+        //   Provider.of<TreatmentService>(context, listen: false).notifyListeners();
+        // }
       } else {
         await firestoreService.addTreatment(treatment);
         // Notify the treatment service about the new treatment
-        if (mounted) {
-          Provider.of<TreatmentService>(context, listen: false).notifyListeners();
-        }
+        // if (mounted) {
+        //   Provider.of<TreatmentService>(context, listen: false).notifyListeners();
+        // }
       }
 
       if (!mounted) return;

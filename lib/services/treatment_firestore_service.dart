@@ -87,10 +87,9 @@ class TreatmentFirestoreService {
   Stream<List<Treatment>> getTreatmentsByPatientId(String patientId) {
     return _treatmentsRef
         .where('patient_id', isEqualTo: patientId)
-        .orderBy('visit_date', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
+      final treatments = snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
         final medicineList =
             (data['prescribed_medicines'] as List<dynamic>? ?? [])
@@ -100,6 +99,10 @@ class TreatmentFirestoreService {
         return Treatment.fromMap(data)
             .copyWith(prescribedMedicines: medicineList);
       }).toList();
+
+      // Sort client-side by visit_date descending
+      treatments.sort((a, b) => b.visitDate.compareTo(a.visitDate));
+      return treatments;
     });
   }
 }

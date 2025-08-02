@@ -213,7 +213,7 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
                   'Treatment Record',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        color: Colors.white,
                       ),
                 ),
                 const SizedBox(height: 6),
@@ -222,15 +222,13 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
                     Icon(
                       MdiIcons.calendar,
                       size: 18,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      color: Colors.white,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       DateFormat('dd MMMM yyyy').format(_treatment!.visitDate),
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onPrimaryContainer,
+                            color: Colors.white,
                             fontWeight: FontWeight.w500,
                           ),
                     ),
@@ -242,19 +240,13 @@ class _TreatmentDetailScreenState extends State<TreatmentDetailScreen> {
                     Icon(
                       MdiIcons.clockOutline,
                       size: 16,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onPrimaryContainer
-                          .withValues(alpha: 0.8),
+                      color: Colors.white,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       DateFormat('hh:mm a').format(_treatment!.visitDate),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onPrimaryContainer
-                                .withValues(alpha: 0.8),
+                            color: Colors.white,
                           ),
                     ),
                   ],

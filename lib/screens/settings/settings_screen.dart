@@ -46,18 +46,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: const CustomAppBar(title: 'Settings'),
       body: _isLoading
           ? const LoadingWidget(message: 'Loading settings...')
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _buildDataSection(),
-                const SizedBox(height: 16),
-                _buildBackupSection(),
-                const SizedBox(height: 16),
-                _buildExportSection(),
-                const SizedBox(height: 16),
-                _buildAboutSection(),
-              ],
+          : Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    _buildDataSection(),
+                    const SizedBox(height: 16),
+                    _buildBackupSection(),
+                    const SizedBox(height: 16),
+                    _buildExportSection(),
+                    const SizedBox(height: 16),
+                    _buildAboutSection(),
+                  ],
+                ),
             ),
+          ),
     );
   }
 

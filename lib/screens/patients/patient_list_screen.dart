@@ -87,28 +87,33 @@ class _PatientListScreenState extends State<PatientListScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildSearchBar(),
-          Expanded(
-            child: _isLoading
-                ? const LoadingWidget()
-                : _filteredPatients.isEmpty
-                    ? EmptyStateWidget(
-                        icon: MdiIcons.accountGroup,
-                        title: _searchQuery.isEmpty
-                            ? 'No Patients Yet'
-                            : 'No Patients Found',
-                        subtitle: _searchQuery.isEmpty
-                            ? 'Add your first patient to get started'
-                            : 'Try adjusting your search criteria',
-                        actionText: _searchQuery.isEmpty ? 'Add Patient' : null,
-                        onActionPressed:
-                            _searchQuery.isEmpty ? _navigateToAddPatient : null,
-                      )
-                    : _buildPatientList(_filteredPatients),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Column(
+            children: [
+              _buildSearchBar(),
+              Expanded(
+                child: _isLoading
+                    ? const LoadingWidget()
+                    : _filteredPatients.isEmpty
+                        ? EmptyStateWidget(
+                            icon: MdiIcons.accountGroup,
+                            title: _searchQuery.isEmpty
+                                ? 'No Patients Yet'
+                                : 'No Patients Found',
+                            subtitle: _searchQuery.isEmpty
+                                ? 'Add your first patient to get started'
+                                : 'Try adjusting your search criteria',
+                            actionText: _searchQuery.isEmpty ? 'Add Patient' : null,
+                            onActionPressed:
+                                _searchQuery.isEmpty ? _navigateToAddPatient : null,
+                          )
+                        : _buildPatientList(_filteredPatients),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

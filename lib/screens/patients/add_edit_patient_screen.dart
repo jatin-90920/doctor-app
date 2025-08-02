@@ -7,8 +7,13 @@ import 'package:ayurvedic_doctor_crm/widgets/custom_app_bar.dart';
 
 class AddEditPatientScreen extends StatefulWidget {
   final Patient? patient;
+  final VoidCallback? onPatientSaved; // Add callback parameter
 
-  const AddEditPatientScreen({super.key, this.patient});
+  const AddEditPatientScreen({
+    super.key,
+    this.patient,
+    this.onPatientSaved, // Add this
+  });
 
   @override
   State<AddEditPatientScreen> createState() => _AddEditPatientScreenState();
@@ -73,7 +78,9 @@ class _AddEditPatientScreenState extends State<AddEditPatientScreen> {
     return Scaffold(
       appBar: CustomAppBar(
         title: _isEditing ? 'Edit Patient' : 'Add Patient',
-        subtitle: _isEditing ? 'Update patient information' : 'Create new patient record',
+        subtitle: _isEditing
+            ? 'Update patient information'
+            : 'Create new patient record',
         actions: [
           TextButton(
             onPressed: _isLoading ? null : _savePatient,
@@ -91,17 +98,22 @@ class _AddEditPatientScreenState extends State<AddEditPatientScreen> {
       ),
       body: Form(
         key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _buildBasicInfoSection(),
-            const SizedBox(height: 24),
-            _buildContactInfoSection(),
-            const SizedBox(height: 24),
-            _buildMedicalHistorySection(),
-            const SizedBox(height: 32),
-            _buildSaveButton(),
-          ],
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildBasicInfoSection(),
+                const SizedBox(height: 24),
+                _buildContactInfoSection(),
+                const SizedBox(height: 24),
+                _buildMedicalHistorySection(),
+                const SizedBox(height: 32),
+                _buildSaveButton(),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -467,7 +479,15 @@ class _AddEditPatientScreenState extends State<AddEditPatientScreen> {
               backgroundColor: Theme.of(context).colorScheme.primary,
             ),
           );
-          Navigator.pop(context);
+          if (widget.onPatientSaved != null) {
+            // Called from sidebar navigation - use callback
+            widget.onPatientSaved!();
+            // Clear the form for next patient
+            // _clearForm();
+          } else {
+            // Called from patient list screen - pop normally
+            Navigator.pop(context);
+          }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
