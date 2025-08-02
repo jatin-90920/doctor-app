@@ -4,6 +4,8 @@ import '../models/patient.dart';
 class PatientFirestoreService {
   final CollectionReference _patientRef =
       FirebaseFirestore.instance.collection('patients');
+  final CollectionReference _treatmentsRef =
+      FirebaseFirestore.instance.collection('treatments');
 
   Future<void> addPatient(Patient patient) async {
     await _patientRef.doc(patient.id).set(patient.toMap());
@@ -14,7 +16,31 @@ class PatientFirestoreService {
   }
 
   Future<void> deletePatient(String id) async {
-    await _patientRef.doc(id).delete();
+    // Use a batch to ensure all operations succeed or fail together
+    final batch = FirebaseFirestore.instance.batch();
+
+    try {
+      // 1. Find all treatments for this patient
+      final treatmentsQuery =
+          await _treatmentsRef.where('patient_id', isEqualTo: id).get();
+
+      // 2. Add all treatment deletions to the batch
+      for (final treatmentDoc in treatmentsQuery.docs) {
+        batch.delete(treatmentDoc.reference);
+      }
+
+      // 3. Add patient deletion to the batch
+      batch.delete(_patientRef.doc(id));
+
+      // 4. Execute all deletions atomically
+      await batch.commit();
+
+      print(
+          'Successfully deleted patient $id and ${treatmentsQuery.docs.length} related treatments');
+    } catch (e) {
+      print('Error deleting patient and treatments: $e');
+      rethrow; // Re-throw so the UI can handle the error
+    }
   }
 
   Stream<List<Patient>> getPatientsStream() {
@@ -44,5 +70,11 @@ class PatientFirestoreService {
       return Patient.fromMap(doc.data() as Map<String, dynamic>);
     }
     return null;
+  }
+
+  Future<int> getTreatmentCountForPatient(String patientId) async {
+    final snapshot =
+        await _treatmentsRef.where('patient_id', isEqualTo: patientId).get();
+    return snapshot.docs.length;
   }
 }

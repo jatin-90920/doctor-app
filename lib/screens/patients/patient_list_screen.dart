@@ -105,9 +105,11 @@ class _PatientListScreenState extends State<PatientListScreen> {
                             subtitle: _searchQuery.isEmpty
                                 ? 'Add your first patient to get started'
                                 : 'Try adjusting your search criteria',
-                            actionText: _searchQuery.isEmpty ? 'Add Patient' : null,
-                            onActionPressed:
-                                _searchQuery.isEmpty ? _navigateToAddPatient : null,
+                            actionText:
+                                _searchQuery.isEmpty ? 'Add Patient' : null,
+                            onActionPressed: _searchQuery.isEmpty
+                                ? _navigateToAddPatient
+                                : null,
                           )
                         : _buildPatientList(_filteredPatients),
               ),
@@ -323,13 +325,44 @@ class _PatientListScreenState extends State<PatientListScreen> {
     }
   }
 
-  void _showDeleteConfirmation(Patient patient) {
+  void _showDeleteConfirmation(Patient patient) async {
+    // Get treatment count before showing dialog
+    int treatmentCount = 0;
+    try {
+      treatmentCount =
+          await _patientService.getTreatmentCountForPatient(patient.id);
+    } catch (e) {
+      // Handle error silently, proceed with deletion
+      print('Error getting treatment count: $e');
+    }
+
+    if (!mounted) return;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Patient'),
-        content: Text(
-          'Are you sure you want to delete ${patient.fullName}? This action cannot be undone and will also delete all associated treatment records.',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Are you sure you want to delete ${patient.fullName}?'),
+            const SizedBox(height: 8),
+            if (treatmentCount > 0) ...[
+              Text(
+                'This will also delete $treatmentCount treatment record${treatmentCount == 1 ? '' : 's'}.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            const Text(
+              'This action cannot be undone.',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -339,22 +372,52 @@ class _PatientListScreenState extends State<PatientListScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
+
+              // Show loading indicator for long operations
+              if (treatmentCount > 10) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Row(
+                      children: [
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 12),
+                        Text('Deleting patient and treatments...'),
+                      ],
+                    ),
+                    duration: Duration(seconds: 30),
+                  ),
+                );
+              }
+
               try {
                 await _patientService.deletePatient(patient.id);
-                // No need to manually call _loadPatients() as real-time listener will update
+
                 if (mounted) {
+                  // Clear any loading indicators
+                  ScaffoldMessenger.of(context).clearSnackBars();
+
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: const Text('Patient deleted successfully'),
+                      content: Text(treatmentCount > 0
+                          ? 'Patient and $treatmentCount treatment${treatmentCount == 1 ? '' : 's'} deleted successfully'
+                          : 'Patient deleted successfully'),
                       backgroundColor: Theme.of(context).colorScheme.primary,
                     ),
                   );
                 }
-              } catch (_) {
+              } catch (e) {
                 if (mounted) {
+                  // Clear any loading indicators
+                  ScaffoldMessenger.of(context).clearSnackBars();
+
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: const Text('Failed to delete patient'),
+                      content:
+                          Text('Failed to delete patient: ${e.toString()}'),
                       backgroundColor: Theme.of(context).colorScheme.error,
                     ),
                   );

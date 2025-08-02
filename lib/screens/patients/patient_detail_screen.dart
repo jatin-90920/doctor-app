@@ -649,7 +649,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header with treatment number and date
+              // Header with treatment number, date, and actions
               Row(
                 children: [
                   Container(
@@ -684,42 +684,90 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                                   ),
                             ),
                             const Spacer(),
-                            // Visit Date - Enhanced
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    MdiIcons.calendar,
-                                    size: 14,
+                            // Quick action buttons
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Edit button
+                                IconButton(
+                                  onPressed: () => _editTreatment(treatment),
+                                  icon: Icon(
+                                    MdiIcons.pencilOutline,
+                                    size: 18,
+                                  ),
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: Theme.of(context)
+                                        .colorScheme
+                                        .primaryContainer
+                                        .withValues(alpha: 0.5),
+                                    foregroundColor:
+                                        Theme.of(context).colorScheme.primary,
+                                    padding: const EdgeInsets.all(8),
+                                    minimumSize: const Size(32, 32),
+                                  ),
+                                  tooltip: 'Edit Treatment',
+                                ),
+                                const SizedBox(width: 8),
+                                // Delete button
+                                IconButton(
+                                  onPressed: () =>
+                                      _showDeleteTreatmentConfirmation(
+                                          treatment, index),
+                                  icon: Icon(
+                                    MdiIcons.deleteOutline,
+                                    size: 18,
+                                  ),
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: Theme.of(context)
+                                        .colorScheme
+                                        .errorContainer
+                                        .withValues(alpha: 0.5),
+                                    foregroundColor:
+                                        Theme.of(context).colorScheme.error,
+                                    padding: const EdgeInsets.all(8),
+                                    minimumSize: const Size(32, 32),
+                                  ),
+                                  tooltip: 'Delete Treatment',
+                                ),
+                                const SizedBox(width: 8),
+                                // Visit Date - Enhanced
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
                                     color: Theme.of(context)
                                         .colorScheme
-                                        .onSurfaceVariant,
+                                        .surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    DateFormat('dd MMM yyyy')
-                                        .format(treatment.visitDate),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                          fontWeight: FontWeight.w500,
-                                        ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        MdiIcons.calendar,
+                                        size: 14,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        DateFormat('dd MMM yyyy')
+                                            .format(treatment.visitDate),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -734,11 +782,6 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                         ),
                       ],
                     ),
-                  ),
-                  Icon(
-                    MdiIcons.chevronRight,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    size: 20,
                   ),
                 ],
               ),
@@ -800,9 +843,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                             MdiIcons.pill,
                             'Medicines',
                             '${treatment.prescribedMedicines.length} prescribed',
-                            // Enhanced medicine badge color - more visible
-                            const Color(
-                                0xFF2E7D32), // Dark green for better visibility
+                            const Color(0xFF2E7D32),
                           ),
                         ),
                       ],
@@ -815,8 +856,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                         width: double.infinity,
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2E7D32)
-                              .withValues(alpha: 0.1), // Enhanced visibility
+                          color: const Color(0xFF2E7D32).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
                             color:
@@ -858,9 +898,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                                             style: Theme.of(context)
                                                 .textTheme
                                                 .bodySmall
-                                                ?.copyWith(
-                                                  fontSize: 11,
-                                                ),
+                                                ?.copyWith(fontSize: 11),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                           ),
@@ -958,9 +996,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodySmall
-                                    ?.copyWith(
-                                      fontSize: 11,
-                                    ),
+                                    ?.copyWith(fontSize: 11),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -972,11 +1008,267 @@ class _PatientDetailScreenState extends State<PatientDetailScreen>
                   ],
                 ),
               ),
+
+              // Bottom action indicator
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(
+                    MdiIcons.gestureTap,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Tap to view full details',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                        ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    MdiIcons.chevronRight,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    size: 16,
+                  ),
+                ],
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  void _editTreatment(Treatment treatment) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddEditTreatmentScreen(
+          patientId: widget.patientId,
+          treatment: treatment,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      _setupTreatmentListener();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Treatment updated successfully'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+        ),
+      );
+    }
+  }
+
+  void _showDeleteTreatmentConfirmation(Treatment treatment, int index) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              MdiIcons.deleteOutline,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(width: 8),
+            const Text('Delete Treatment'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to delete this treatment record?',
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .errorContainer
+                    .withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .error
+                      .withValues(alpha: 0.3),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        MdiIcons.stethoscope,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Treatment #${_treatments.length - index}',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    DateFormat('dd MMM yyyy, hh:mm a')
+                        .format(treatment.visitDate),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Symptoms: ${treatment.symptoms}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (treatment.prescribedMedicines.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Medicines: ${treatment.prescribedMedicines.length} prescribed',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .errorContainer
+                    .withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    MdiIcons.alertCircleOutline,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This action cannot be undone.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.error,
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteTreatment(treatment, index);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+              backgroundColor: Theme.of(context)
+                  .colorScheme
+                  .errorContainer
+                  .withValues(alpha: 0.3),
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteTreatment(Treatment treatment, int index) async {
+    try {
+      // Show loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).colorScheme.onInverseSurface,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text('Deleting treatment...'),
+            ],
+          ),
+          duration: const Duration(seconds: 30),
+        ),
+      );
+
+      // Delete the treatment
+      await _treatmentService.deleteTreatment(treatment.id);
+
+      if (mounted) {
+        // Clear loading indicator
+        ScaffoldMessenger.of(context).clearSnackBars();
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Treatment #${_treatments.length - index} deleted successfully'),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            action: SnackBarAction(
+              label: 'Add New',
+              textColor: Theme.of(context).colorScheme.onPrimary,
+              onPressed: () => _addTreatment(),
+            ),
+          ),
+        );
+
+        // Refresh the treatment list
+        _setupTreatmentListener();
+      }
+    } catch (e) {
+      if (mounted) {
+        // Clear loading indicator
+        ScaffoldMessenger.of(context).clearSnackBars();
+
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete treatment: ${e.toString()}'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Theme.of(context).colorScheme.onError,
+              onPressed: () => _deleteTreatment(treatment, index),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildQuickInfoItem(
