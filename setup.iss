@@ -2,13 +2,12 @@
 AppName=Doctor CRM
 AppVersion=1.0
 DefaultDirName={autopf}\DoctorCRM
-DefaultGroupName=DoctorCRM
+DefaultGroupName=Doctor CRM
 OutputDir=installer
 OutputBaseFilename=DoctorCRM-Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-; Add icon for the installer and uninstaller
 SetupIconFile=windows\runner\resources\app_icon.ico
 UninstallDisplayIcon={app}\ayurvedic_doctor_crm.exe
 
@@ -22,8 +21,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\DoctorCRM"; Filename: "{app}\ayurvedic_doctor_crm.exe"; IconFilename: "{app}\ayurvedic_doctor_crm.exe"; IconIndex: 0
-Name: "{autodesktop}\DoctorCRM"; Filename: "{app}\ayurvedic_doctor_crm.exe"; IconFilename: "{app}\ayurvedic_doctor_crm.exe"; IconIndex: 0; Tasks: desktopicon
+Name: "{group}\Doctor CRM"; Filename: "{app}\ayurvedic_doctor_crm.exe"; IconFilename: "{app}\ayurvedic_doctor_crm.exe"; IconIndex: 0
+Name: "{autodesktop}\Doctor CRM"; Filename: "{app}\ayurvedic_doctor_crm.exe"; IconFilename: "{app}\ayurvedic_doctor_crm.exe"; IconIndex: 0; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\ayurvedic_doctor_crm.exe"; Description: "{cm:LaunchProgram,Ammy Bespoke}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\ayurvedic_doctor_crm.exe"; Description: "Launch Doctor CRM"; Flags: nowait postinstall skipifsilent
